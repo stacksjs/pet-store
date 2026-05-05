@@ -1,51 +1,35 @@
 @extends('layouts/storefront')
 
 @section('title', 'BareBowl — One ingredient. Nothing else.')
-@section('description', 'Single-ingredient, freeze-dried treats and meals for dogs and cats. Traceable, human-grade, vet-formulated.')
+@section('description', 'Single-ingredient, freeze-dried treats for dogs. Traceable, human-grade, vet-formulated.')
 
 <script server>
-const featured = [
-  {
-    slug: 'beef-liver',
-    name: 'Freeze-Dried Beef Liver',
-    ingredient: 'Beef Liver',
-    species: 'dog',
-    weight: '113g',
-    price: 18.00,
-    image: 'https://images.unsplash.com/photo-1596797038530-2c107229654b?w=800&q=80',
-    accent: 'bg-amber-100 text-amber-900',
-  },
-  {
-    slug: 'salmon-skin',
-    name: 'Wild Salmon Skin Strips',
-    ingredient: 'Wild Alaskan Salmon Skin',
-    species: 'cat',
-    weight: '85g',
-    price: 22.00,
-    image: 'https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5?w=800&q=80',
-    accent: 'bg-rose-100 text-rose-900',
-  },
-  {
-    slug: 'duck-neck',
-    name: 'Air-Dried Duck Necks',
-    ingredient: 'Pasture-Raised Duck Neck',
-    species: 'dog',
-    weight: '227g',
-    price: 28.00,
-    image: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=800&q=80',
-    accent: 'bg-emerald-100 text-emerald-900',
-  },
-  {
-    slug: 'chicken-heart',
-    name: 'Freeze-Dried Chicken Heart',
-    ingredient: 'Free-Range Chicken Heart',
-    species: 'cat',
-    weight: '85g',
-    price: 16.00,
-    image: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=800&q=80',
-    accent: 'bg-stone-200 text-stone-900',
-  },
-]
+const Database = require('bun:sqlite').Database
+const path = require('path')
+
+const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/barebowl.sqlite')
+const db = new Database(dbPath, { readonly: true })
+
+// Pull the dog catalog directly from the products table. We only sell
+// dog treats, so no species filter is needed for now — but we still
+// scope to is_available + pet_species='dog' to keep the storefront safe
+// against future entries.
+const featured = db.query(`
+  SELECT slug, name, ingredient, pet_species AS species, weight_grams, price, image_url
+  FROM products
+  WHERE is_available = 1 AND pet_species = 'dog'
+  ORDER BY price ASC
+  LIMIT 4
+`).all().map((p) => ({
+  slug: p.slug,
+  name: p.name,
+  ingredient: p.ingredient,
+  species: p.species,
+  weight: `${p.weight_grams}g`,
+  price: Number(p.price),
+  image: p.image_url,
+  accent: 'bg-stone-100 text-stone-900',
+}))
 
 const principles = [
   {
@@ -65,86 +49,86 @@ const principles = [
 
 @section('content')
   <!-- Hero -->
-  <section class="relative overflow-hidden">
-    <div class="mx-auto max-w-6xl px-6 pt-20 pb-24 grid md:grid-cols-2 gap-12 items-center">
+  <section class="overflow-hidden relative">
+    <div class="grid gap-12 items-center md:grid-cols-2 mx-auto pb-24 pt-20 px-6 max-w-6xl">
       <div>
-        <span class="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-900">
-          <span class="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
+        <span class="inline-flex gap-2 items-center px-3 py-1 font-medium text-emerald-900 text-xs bg-emerald-100 rounded-full">
+          <span class="h-1.5 w-1.5 bg-emerald-600 rounded-full"></span>
           Single-ingredient. Always.
         </span>
-        <h1 class="mt-5 text-5xl md:text-6xl font-bold tracking-tight text-stone-900 leading-[1.05]">
+        <h1 class="mt-5 font-bold leading-[1.05] text-5xl text-stone-900 tracking-tight md:text-6xl">
           Real food.<br>
           <span class="text-stone-500">Nothing else.</span>
         </h1>
-        <p class="mt-6 text-lg text-stone-600 leading-relaxed max-w-md">
-          BareBowl makes freeze-dried treats and meals from a single, human-grade ingredient. No grains. No fillers. No mystery.
+        <p class="mt-6 max-w-md leading-relaxed text-lg text-stone-600">
+          BareBowl makes freeze-dried and air-dried treats from a single, human-grade ingredient. No grains. No fillers. No mystery.
         </p>
-        <div class="mt-8 flex flex-wrap gap-3">
-          <a href="/products" class="inline-flex items-center gap-2 rounded-full bg-stone-900 px-6 py-3 text-sm font-semibold text-stone-50 hover:bg-stone-800 transition-colors">
+        <div class="flex flex-wrap gap-3 mt-8">
+          <a href="/products" class="inline-flex gap-2 items-center px-6 py-3 font-semibold text-sm text-stone-50 bg-stone-900 hover:bg-stone-800 rounded-full transition-colors">
             Shop the bowl
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
           </a>
-          <a href="/about" class="inline-flex items-center gap-2 rounded-full border border-stone-300 px-6 py-3 text-sm font-semibold text-stone-900 hover:border-stone-900 transition-colors">
+          <a href="/about" class="inline-flex gap-2 items-center px-6 py-3 font-semibold text-sm text-stone-900 border border-stone-300 rounded-full hover:border-stone-900 transition-colors">
             Our standard
           </a>
         </div>
 
-        <div class="mt-10 grid grid-cols-3 gap-4 text-center max-w-md">
+        <div class="grid gap-4 grid-cols-3 mt-10 max-w-md text-center">
           <div>
             <p class="font-bold text-2xl text-stone-900">1</p>
-            <p class="mt-1 text-xs uppercase tracking-wider text-stone-500">Ingredient</p>
+            <p class="mt-1 text-stone-500 text-xs tracking-wider uppercase">Ingredient</p>
           </div>
           <div>
             <p class="font-bold text-2xl text-stone-900">0</p>
-            <p class="mt-1 text-xs uppercase tracking-wider text-stone-500">Fillers</p>
+            <p class="mt-1 text-stone-500 text-xs tracking-wider uppercase">Fillers</p>
           </div>
           <div>
             <p class="font-bold text-2xl text-stone-900">100%</p>
-            <p class="mt-1 text-xs uppercase tracking-wider text-stone-500">Traceable</p>
+            <p class="mt-1 text-stone-500 text-xs tracking-wider uppercase">Traceable</p>
           </div>
         </div>
       </div>
 
       <div class="relative">
-        <div class="aspect-[4/5] rounded-3xl bg-gradient-to-br from-stone-200 via-amber-50 to-emerald-50 overflow-hidden">
-          <img src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=900&q=80" alt="BareBowl pet food" class="h-full w-full object-cover mix-blend-multiply opacity-95">
+        <div class="aspect-[4/5] overflow-hidden bg-gradient-to-br from-stone-200 to-emerald-50 via-amber-50 rounded-3xl">
+          <img src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=900&q=80" alt="BareBowl pet food" class="object-cover h-full w-full mix-blend-multiply opacity-95">
         </div>
-        <div class="absolute -bottom-6 -left-6 bg-stone-50 border border-stone-200 rounded-2xl p-5 shadow-sm max-w-[220px]">
-          <p class="text-xs font-medium uppercase tracking-wider text-stone-500">On the label</p>
+        <div class="absolute p-5 max-w-[220px] bg-stone-50 border border-stone-200 rounded-2xl shadow-sm -bottom-6 -left-6">
+          <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">On the label</p>
           <p class="mt-2 font-bold text-lg text-stone-900">Beef Liver.</p>
-          <p class="mt-1 text-xs text-stone-500">That's it. That's the list.</p>
+          <p class="mt-1 text-stone-500 text-xs">That's it. That's the list.</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- Featured -->
-  <section class="bg-stone-100 py-20">
-    <div class="mx-auto max-w-6xl px-6">
+  <section class="py-20 bg-stone-100">
+    <div class="mx-auto px-6 max-w-6xl">
       <div class="flex items-end justify-between mb-10">
         <div>
-          <p class="text-xs uppercase tracking-wider text-stone-500 font-medium">Bestsellers</p>
-          <h2 class="mt-2 text-3xl md:text-4xl font-bold text-stone-900 tracking-tight">Pick your protein.</h2>
+          <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">Bestsellers</p>
+          <h2 class="mt-2 font-bold text-3xl text-stone-900 tracking-tight md:text-4xl">Pick your protein.</h2>
         </div>
-        <a href="/products" class="hidden md:inline-flex items-center gap-1 text-sm font-medium text-stone-900 hover:gap-2 transition-all">
+        <a href="/products" class="hidden md:inline-flex gap-1 items-center hover:gap-2 font-medium text-sm text-stone-900 transition-all">
           See all
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
         </a>
       </div>
 
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+      <div class="grid gap-5 grid-cols-2 md:grid-cols-4">
         @foreach (featured as p)
-          <a href="/products/{{ p.slug }}" class="group block bg-stone-50 rounded-2xl overflow-hidden border border-stone-200 hover:border-stone-900 transition-colors">
+          <a href="/products/{{ p.slug }}" class="block overflow-hidden bg-stone-50 border border-stone-200 rounded-2xl hover:border-stone-900 transition-colors group">
             <div class="aspect-square overflow-hidden bg-stone-200">
-              <img src="{{ p.image }}" alt="{{ p.name }}" class="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500">
+              <img src="{{ p.image }}" alt="{{ p.name }}" class="object-cover h-full w-full duration-500 transition-transform group-hover:scale-105">
             </div>
             <div class="p-4">
               <div class="flex items-center justify-between">
-                <span class="inline-flex items-center rounded-full {{ p.accent }} px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">{{ p.species }}</span>
-                <span class="text-xs text-stone-500">{{ p.weight }}</span>
+                <span class="inline-flex items-center rounded-full {{ p.accent }} px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">For dogs</span>
+                <span class="text-stone-500 text-xs">{{ p.weight }}</span>
               </div>
-              <h3 class="mt-3 font-semibold text-stone-900 leading-snug">{{ p.name }}</h3>
-              <p class="mt-1 text-xs text-stone-500">{{ p.ingredient }}</p>
+              <h3 class="mt-3 font-semibold leading-snug text-stone-900">{{ p.name }}</h3>
+              <p class="mt-1 text-stone-500 text-xs">{{ p.ingredient }}</p>
               <p class="mt-3 font-bold text-stone-900">${{ p.price.toFixed(2) }}</p>
             </div>
           </a>
@@ -155,21 +139,21 @@ const principles = [
 
   <!-- Principles -->
   <section class="py-24">
-    <div class="mx-auto max-w-6xl px-6">
+    <div class="mx-auto px-6 max-w-6xl">
       <div class="max-w-2xl">
-        <p class="text-xs uppercase tracking-wider text-stone-500 font-medium">The standard</p>
-        <h2 class="mt-2 text-3xl md:text-4xl font-bold text-stone-900 tracking-tight">We did the math on every label.</h2>
-        <p class="mt-4 text-stone-600 leading-relaxed">
+        <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">The standard</p>
+        <h2 class="mt-2 font-bold text-3xl text-stone-900 tracking-tight md:text-4xl">We did the math on every label.</h2>
+        <p class="mt-4 leading-relaxed text-stone-600">
           The pet food aisle is full of words designed to obscure. We started BareBowl because we wanted something a vet, a butcher, and a chemist could all read and nod at. So we made the simplest thing: one ingredient.
         </p>
       </div>
 
-      <div class="mt-12 grid md:grid-cols-3 gap-6">
+      <div class="grid gap-6 md:grid-cols-3 mt-12">
         @foreach (principles as principle, i)
-          <div class="border-l-2 border-stone-900 pl-6">
-            <p class="text-sm font-mono text-stone-500">0{{ i + 1 }}</p>
-            <h3 class="mt-3 text-xl font-bold text-stone-900">{{ principle.title }}</h3>
-            <p class="mt-3 text-stone-600 leading-relaxed text-sm">{{ principle.body }}</p>
+          <div class="pl-6 border-l-2 border-stone-900">
+            <p class="font-mono text-sm text-stone-500">0{{ i + 1 }}</p>
+            <h3 class="mt-3 font-bold text-stone-900 text-xl">{{ principle.title }}</h3>
+            <p class="mt-3 leading-relaxed text-sm text-stone-600">{{ principle.body }}</p>
           </div>
         @endforeach
       </div>
@@ -177,21 +161,21 @@ const principles = [
   </section>
 
   <!-- Newsletter -->
-  <section class="bg-stone-900 text-stone-50 py-20">
-    <div class="mx-auto max-w-3xl px-6 text-center">
-      <h2 class="text-3xl md:text-4xl font-bold tracking-tight">Get a treat on us.</h2>
-      <p class="mt-3 text-stone-300 leading-relaxed">
+  <section class="py-20 text-stone-50 bg-stone-900">
+    <div class="mx-auto px-6 max-w-3xl text-center">
+      <h2 class="font-bold text-3xl tracking-tight md:text-4xl">Get a treat on us.</h2>
+      <p class="mt-3 leading-relaxed text-stone-300">
         Subscribe and we'll send a free freeze-dried sample with your first order.
       </p>
-      <form class="mt-8 flex flex-col sm:flex-row gap-3 max-w-md mx-auto" action="/api/email/subscribe" method="POST">
+      <form class="flex flex-col gap-3 sm:flex-row mt-8 mx-auto max-w-md" action="/api/email/subscribe" method="POST">
         <input
           type="email"
           name="email"
           required
           placeholder="you@example.com"
-          class="flex-1 rounded-full bg-stone-800 border border-stone-700 px-5 py-3 text-sm placeholder-stone-500 focus:border-stone-50 focus:outline-none"
+          class="flex-1 placeholder-stone-500 px-5 py-3 text-sm bg-stone-800 border border-stone-700 rounded-full focus:border-stone-50 focus:outline-none"
         >
-        <button type="submit" class="rounded-full bg-stone-50 px-6 py-3 text-sm font-semibold text-stone-900 hover:bg-stone-200 transition-colors">
+        <button type="submit" class="px-6 py-3 font-semibold text-sm text-stone-900 bg-stone-50 hover:bg-stone-200 rounded-full transition-colors">
           Subscribe
         </button>
       </form>

@@ -33,8 +33,7 @@ dist*
 !.gitkeep
 
 # Database files
-database/stacks_testing.sqlite
-database/stacks.sqlite
+database/*.sqlite
 database/*.sqlite-wal
 database/*.sqlite-shm
 
