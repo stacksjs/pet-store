@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS "products" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "name" TEXT,
+  "description" TEXT,
+  "price" INTEGER,
+  "image_url" TEXT,
+  "ingredient" TEXT,
+  "pet_species" TEXT,
+  "life_stage" TEXT,
+  "weight_grams" INTEGER,
+  "is_available" INTEGER,
+  "inventory_count" INTEGER,
+  "sourced_from" TEXT,
+  "slug" TEXT,
+  "tagline" TEXT,
+  "guaranteed_analysis" TEXT,
+  "category_id" INTEGER,
+  "created_at" TEXT not null default CURRENT_TIMESTAMP,
+  "updated_at" TEXT,
+  "uuid" TEXT
+);

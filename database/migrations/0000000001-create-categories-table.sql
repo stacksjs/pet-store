@@ -5,8 +5,9 @@ CREATE TABLE IF NOT EXISTS "categories" (
   "slug" TEXT,
   "image_url" TEXT,
   "is_active" INTEGER,
-  "parent_category_id" TEXT,
-  "display_order" REAL,
+  "parent_category_id" INTEGER,
+  "display_order" INTEGER,
   "created_at" TEXT not null default CURRENT_TIMESTAMP,
-  "updated_at" TEXT
+  "updated_at" TEXT,
+  "uuid" TEXT
 );

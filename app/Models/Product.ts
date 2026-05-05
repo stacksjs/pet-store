@@ -128,6 +128,37 @@ export default defineModel({
       validation: { rule: schema.string() },
       factory: faker => faker.helpers.arrayElement(['USDA-Inspected US Farm', 'New Zealand Pasture', 'Wild-Caught Alaskan', 'Family Ranch, Idaho']),
     },
+
+    // Slug = URL-friendly identifier the storefront uses everywhere.
+    // Unique so the framework generates a `products_slug_unique` index.
+    slug: {
+      order: 12,
+      fillable: true,
+      unique: true,
+      validation: {
+        rule: schema.string().max(80),
+      },
+      factory: (faker) => {
+        const cuts = ['chicken-paws', 'beef-liver', 'chicken-liver', 'sweet-potatoes', 'dog-seasoning']
+        return faker.helpers.arrayElement(cuts)
+      },
+    },
+
+    // One-line storefront tagline for product cards / hero copy.
+    tagline: {
+      order: 13,
+      fillable: true,
+      validation: { rule: schema.string().max(255) },
+      factory: () => 'One cut. Nothing else.',
+    },
+
+    // Guaranteed analysis as a JSON string: { protein, fat, fiber, moisture }.
+    guaranteedAnalysis: {
+      order: 14,
+      fillable: true,
+      validation: { rule: schema.string() },
+      factory: () => '{"protein":"60%","fat":"15%","fiber":"< 1%","moisture":"5%"}',
+    },
   },
 
   dashboard: {

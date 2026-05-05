@@ -131,6 +131,85 @@ export default defineModel({
       },
       factory: () => 'test-coupon-id',
     },
+
+    // Anonymous-cart identifier. Cookie-keyed so a guest shopper can
+    // come back to the same cart without logging in.
+    sessionToken: {
+      order: 11,
+      fillable: true,
+      unique: true,
+      validation: {
+        rule: schema.string().max(64),
+      },
+      factory: faker => faker.string.uuid(),
+    },
+
+    // Multi-step checkout state. Each column maps to one of the
+    // checkout steps the storefront walks the shopper through, so the
+    // cart row is the source of truth between steps.
+    email: {
+      order: 12,
+      fillable: true,
+      validation: {
+        rule: schema.string().email().max(255),
+      },
+      factory: faker => faker.internet.email(),
+    },
+
+    shippingName: {
+      order: 13,
+      fillable: true,
+      validation: {
+        rule: schema.string().max(120),
+      },
+      factory: faker => faker.person.fullName(),
+    },
+
+    shippingAddress: {
+      order: 14,
+      fillable: true,
+      validation: {
+        rule: schema.string().max(255),
+      },
+      factory: faker => faker.location.streetAddress(),
+    },
+
+    shippingCity: {
+      order: 15,
+      fillable: true,
+      validation: {
+        rule: schema.string().max(120),
+      },
+      factory: faker => faker.location.city(),
+    },
+
+    shippingState: {
+      order: 16,
+      fillable: true,
+      validation: {
+        rule: schema.string().max(60),
+      },
+      factory: faker => faker.location.state({ abbreviated: true }),
+    },
+
+    shippingZip: {
+      order: 17,
+      fillable: true,
+      validation: {
+        rule: schema.string().max(20),
+      },
+      factory: faker => faker.location.zipCode(),
+    },
+
+    checkoutStep: {
+      default: 'cart',
+      order: 18,
+      fillable: true,
+      validation: {
+        rule: schema.enum(['cart', 'contact', 'shipping', 'payment', 'placed']),
+      },
+      factory: faker => faker.helpers.arrayElement(['cart', 'contact', 'shipping', 'payment', 'placed']),
+    },
   },
 
   dashboard: {
