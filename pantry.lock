@@ -1359,10 +1359,10 @@
       "dependencies": {
         "@cwcss/crosswind": "^0.2.0",
         "@stacksjs/clapp": "^0.2.0",
-        "@stacksjs/desktop": "0.2.35",
+        "@stacksjs/desktop": "0.2.46",
         "@stacksjs/sanitizer": "0.2.35",
         "@stacksjs/ts-craft": "^0.0.2",
-        "bun-plugin-stx": "0.2.42",
+        "bun-plugin-stx": "0.2.46",
         "bunfig": "^0.15.6",
         "stx-router": "0.2.38",
         "ts-broadcasting": "^0.0.4",
