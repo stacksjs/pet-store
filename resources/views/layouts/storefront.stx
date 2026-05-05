@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-stone-50 text-stone-900">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>@yield('title', 'BareBowl — One ingredient. Nothing else.')</title>
+  <meta name="description" content="@yield('description', 'Single-ingredient, human-grade pet food. Traceable from farm to bowl.')">
+</head>
+<body class="bg-stone-50 text-stone-900 font-serif antialiased">
+
+  <!-- Top bar -->
+  <div class="bg-stone-900 text-stone-100 text-xs">
+    <div class="mx-auto max-w-6xl px-6 py-2 text-center tracking-wide">
+      Free shipping on orders over $40 · Vet-formulated · Made in the USA
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="border-b border-stone-200 bg-stone-50/95 backdrop-blur sticky top-0 z-30">
+    <div class="mx-auto max-w-6xl px-6 py-5 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2 group">
+        <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-stone-900 text-stone-50 font-bold text-sm">b.</span>
+        <span class="font-bold text-xl tracking-tight">BareBowl</span>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-stone-700">
+        <a href="/products" class="hover:text-stone-900 transition-colors">Shop</a>
+        <a href="/products?species=dog" class="hover:text-stone-900 transition-colors">For Dogs</a>
+        <a href="/products?species=cat" class="hover:text-stone-900 transition-colors">For Cats</a>
+        <a href="/about" class="hover:text-stone-900 transition-colors">Our Standard</a>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <a href="/cart" class="relative inline-flex items-center gap-2 rounded-full border border-stone-300 px-4 py-2 text-sm font-medium hover:border-stone-900 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c.51 0 .956-.343 1.087-.835l1.872-7.024A1.125 1.125 0 0019.797 5.25H5.106M7.5 14.25L5.106 5.25M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" /></svg>
+          Cart
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    @yield('content')
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-24 border-t border-stone-200 bg-stone-100">
+    <div class="mx-auto max-w-6xl px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
+      <div class="col-span-2 md:col-span-1">
+        <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-stone-900 text-stone-50 font-bold text-sm">b.</span>
+        <p class="mt-3 text-stone-600 leading-relaxed">One ingredient. Nothing else. Real food for real animals.</p>
+      </div>
+      <div>
+        <p class="font-semibold mb-3 text-stone-900">Shop</p>
+        <ul class="space-y-2 text-stone-600">
+          <li><a href="/products?species=dog" class="hover:text-stone-900">Dogs</a></li>
+          <li><a href="/products?species=cat" class="hover:text-stone-900">Cats</a></li>
+          <li><a href="/products" class="hover:text-stone-900">All treats</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="font-semibold mb-3 text-stone-900">Brand</p>
+        <ul class="space-y-2 text-stone-600">
+          <li><a href="/about" class="hover:text-stone-900">Our standard</a></li>
+          <li><a href="/about#sourcing" class="hover:text-stone-900">Sourcing</a></li>
+          <li><a href="/about#testing" class="hover:text-stone-900">Testing</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="font-semibold mb-3 text-stone-900">Help</p>
+        <ul class="space-y-2 text-stone-600">
+          <li><a href="/contact" class="hover:text-stone-900">Contact</a></li>
+          <li><a href="/faq" class="hover:text-stone-900">FAQ</a></li>
+          <li><a href="/shipping" class="hover:text-stone-900">Shipping & returns</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-stone-200">
+      <div class="mx-auto max-w-6xl px-6 py-6 flex flex-col md:flex-row items-center justify-between text-xs text-stone-500">
+        <p>© {{ new Date().getFullYear() }} BareBowl. All rights reserved.</p>
+        <p class="mt-2 md:mt-0">Built on Stacks · Bun · TypeScript · STX</p>
+      </div>
+    </div>
+  </footer>
+
+  @stack('scripts')
+</body>
+</html>

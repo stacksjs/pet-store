@@ -19,21 +19,21 @@
       "name": "Cart",
       "icon": "cart.fill",
       "hasDedicatedPage": false,
-      "category": "commerce"
+      "category": "userland"
     },
     {
       "id": "cart-item",
       "name": "CartItem",
       "icon": "cart.badge.plus",
       "hasDedicatedPage": false,
-      "category": "commerce"
+      "category": "userland"
     },
     {
       "id": "category",
       "name": "Category",
       "icon": "tag.fill",
       "hasDedicatedPage": true,
-      "category": "commerce"
+      "category": "userland"
     },
     {
       "id": "comment",
@@ -47,14 +47,14 @@
       "name": "Coupon",
       "icon": "ticket.fill",
       "hasDedicatedPage": true,
-      "category": "commerce"
+      "category": "userland"
     },
     {
       "id": "customer",
       "name": "Customer",
       "icon": "person.crop.circle.fill",
       "hasDedicatedPage": true,
-      "category": "commerce"
+      "category": "userland"
     },
     {
       "id": "delivery-route",
@@ -152,14 +152,14 @@
       "name": "Order",
       "icon": "list.clipboard.fill",
       "hasDedicatedPage": true,
-      "category": "commerce"
+      "category": "userland"
     },
     {
       "id": "order-item",
       "name": "OrderItem",
       "icon": "list.bullet.clipboard.fill",
       "hasDedicatedPage": false,
-      "category": "commerce"
+      "category": "userland"
     },
     {
       "id": "page",
@@ -215,7 +215,7 @@
       "name": "Product",
       "icon": "cube.box.fill",
       "hasDedicatedPage": true,
-      "category": "commerce"
+      "category": "userland"
     },
     {
       "id": "product-unit",
@@ -250,7 +250,7 @@
       "name": "Review",
       "icon": "star.fill",
       "hasDedicatedPage": true,
-      "category": "commerce"
+      "category": "userland"
     },
     {
       "id": "shipping-method",

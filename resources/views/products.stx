@@ -1,0 +1,62 @@
+@extends('layouts/storefront')
+
+@section('title', 'Shop — BareBowl')
+@section('description', 'Single-ingredient freeze-dried treats and meals. Browse the full catalogue.')
+
+<script server>
+const products = [
+  { slug: 'beef-liver',      name: 'Freeze-Dried Beef Liver',     ingredient: 'Beef Liver',                 species: 'dog', weight: '113g', price: 18.00, image: 'https://images.unsplash.com/photo-1596797038530-2c107229654b?w=800&q=80', tag: 'Bestseller' },
+  { slug: 'salmon-skin',     name: 'Wild Salmon Skin Strips',     ingredient: 'Wild Alaskan Salmon Skin',   species: 'cat', weight: '85g',  price: 22.00, image: 'https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5?w=800&q=80', tag: 'New' },
+  { slug: 'duck-neck',       name: 'Air-Dried Duck Necks',        ingredient: 'Pasture-Raised Duck Neck',   species: 'dog', weight: '227g', price: 28.00, image: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=800&q=80', tag: '' },
+  { slug: 'chicken-heart',   name: 'Freeze-Dried Chicken Heart',  ingredient: 'Free-Range Chicken Heart',   species: 'cat', weight: '85g',  price: 16.00, image: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=800&q=80', tag: '' },
+  { slug: 'turkey-gizzard',  name: 'Freeze-Dried Turkey Gizzard', ingredient: 'Turkey Gizzard',             species: 'dog', weight: '170g', price: 21.00, image: 'https://images.unsplash.com/photo-1586671267731-da2cf3ceeb80?w=800&q=80', tag: '' },
+  { slug: 'lamb-lung',       name: 'Air-Dried Lamb Lung',         ingredient: 'New Zealand Lamb Lung',      species: 'dog', weight: '113g', price: 19.00, image: 'https://images.unsplash.com/photo-1545241047-6083a3684587?w=800&q=80', tag: '' },
+  { slug: 'sardine',         name: 'Freeze-Dried Whole Sardine',  ingredient: 'Wild-Caught Sardine',        species: 'cat', weight: '56g',  price: 14.00, image: 'https://images.unsplash.com/photo-1559030623-0226b1241edd?w=800&q=80', tag: '' },
+  { slug: 'rabbit-ear',      name: 'Whole Rabbit Ears',           ingredient: 'Free-Range Rabbit Ear',      species: 'dog', weight: '170g', price: 24.00, image: 'https://images.unsplash.com/photo-1583511666372-62fc211f8377?w=800&q=80', tag: 'Limited' },
+]
+</script>
+
+@section('content')
+  <div class="mx-auto max-w-6xl px-6 py-12">
+
+    <div class="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+      <div>
+        <p class="text-xs uppercase tracking-wider text-stone-500 font-medium">All products</p>
+        <h1 class="mt-2 text-4xl font-bold text-stone-900 tracking-tight">The whole bowl.</h1>
+        <p class="mt-2 text-stone-600">Eight cuts. Two species. One ingredient each.</p>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <a href="/products"             class="rounded-full bg-stone-900 text-stone-50 px-4 py-2 text-xs font-semibold">All</a>
+        <a href="/products?species=dog" class="rounded-full border border-stone-300 px-4 py-2 text-xs font-semibold text-stone-700 hover:border-stone-900">For Dogs</a>
+        <a href="/products?species=cat" class="rounded-full border border-stone-300 px-4 py-2 text-xs font-semibold text-stone-700 hover:border-stone-900">For Cats</a>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+      @foreach (products as p)
+        <a href="/products/{{ p.slug }}" class="group block bg-stone-50 rounded-2xl overflow-hidden border border-stone-200 hover:border-stone-900 transition-colors">
+          <div class="relative aspect-square overflow-hidden bg-stone-200">
+            <img src="{{ p.image }}" alt="{{ p.name }}" class="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500">
+            @if (p.tag)
+              <span class="absolute top-3 left-3 rounded-full bg-stone-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-stone-900">{{ p.tag }}</span>
+            @endif
+          </div>
+          <div class="p-4">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-stone-500">For {{ p.species === 'dog' ? 'dogs' : 'cats' }}</span>
+              <span class="text-xs text-stone-500">{{ p.weight }}</span>
+            </div>
+            <h3 class="mt-2 font-semibold text-stone-900 leading-snug">{{ p.name }}</h3>
+            <p class="mt-1 text-xs text-stone-500">{{ p.ingredient }}</p>
+            <div class="mt-3 flex items-center justify-between">
+              <p class="font-bold text-stone-900">${{ p.price.toFixed(2) }}</p>
+              <span class="text-xs font-medium text-stone-500 group-hover:text-stone-900">View →</span>
+            </div>
+          </div>
+        </a>
+      @endforeach
+    </div>
+
+  </div>
+@endsection

@@ -1,99 +1,200 @@
-@extends('layouts/default')
+@extends('layouts/storefront')
 
-@section('title', 'Stacks — Build modern web applications')
-
-@include('theme')
+@section('title', 'BareBowl — One ingredient. Nothing else.')
+@section('description', 'Single-ingredient, freeze-dried treats and meals for dogs and cats. Traceable, human-grade, vet-formulated.')
 
 <script server>
-const appName = 'Stacks'
-const appVersion = '0.1.0'
+const featured = [
+  {
+    slug: 'beef-liver',
+    name: 'Freeze-Dried Beef Liver',
+    ingredient: 'Beef Liver',
+    species: 'dog',
+    weight: '113g',
+    price: 18.00,
+    image: 'https://images.unsplash.com/photo-1596797038530-2c107229654b?w=800&q=80',
+    accent: 'bg-amber-100 text-amber-900',
+  },
+  {
+    slug: 'salmon-skin',
+    name: 'Wild Salmon Skin Strips',
+    ingredient: 'Wild Alaskan Salmon Skin',
+    species: 'cat',
+    weight: '85g',
+    price: 22.00,
+    image: 'https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5?w=800&q=80',
+    accent: 'bg-rose-100 text-rose-900',
+  },
+  {
+    slug: 'duck-neck',
+    name: 'Air-Dried Duck Necks',
+    ingredient: 'Pasture-Raised Duck Neck',
+    species: 'dog',
+    weight: '227g',
+    price: 28.00,
+    image: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=800&q=80',
+    accent: 'bg-emerald-100 text-emerald-900',
+  },
+  {
+    slug: 'chicken-heart',
+    name: 'Freeze-Dried Chicken Heart',
+    ingredient: 'Free-Range Chicken Heart',
+    species: 'cat',
+    weight: '85g',
+    price: 16.00,
+    image: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=800&q=80',
+    accent: 'bg-stone-200 text-stone-900',
+  },
+]
 
-const features = [
+const principles = [
   {
-    title: 'Documentation',
-    description: 'Explore our comprehensive guides and API references to get the most out of Stacks.',
-    url: 'https://stacksjs.org/docs',
-    icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>',
+    title: 'One ingredient',
+    body: 'No fillers, no flavorings, no "natural flavor." If we put beef liver on the label, beef liver is the only thing inside.',
   },
   {
-    title: 'GitHub',
-    description: 'View the source code, report issues, and contribute to the Stacks ecosystem.',
-    url: 'https://github.com/stacksjs/stacks',
-    icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>',
+    title: 'Human-grade only',
+    body: 'Every cut comes from USDA-inspected facilities — the same supply chain that feeds people, not the leftovers from one.',
   },
   {
-    title: 'Discord',
-    description: 'Join our community of developers. Get help, share ideas, and stay up to date.',
-    url: 'https://discord.gg/stacksjs',
-    icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" /></svg>',
-  },
-  {
-    title: 'Dashboard',
-    description: 'Manage your application with the built-in admin dashboard and developer tools.',
-    url: '/dashboard',
-    icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>',
+    title: 'Traceable',
+    body: 'Every bag has a batch code. Scan it, and you see the farm, the processing date, and the third-party lab report.',
   },
 ]
 </script>
 
 @section('content')
-  <!-- Header -->
-  <div class="mb-12 text-center">
-    <div class="inline-flex gap-3 items-center mb-6">
-      <div class="h-12 w-12 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-lg shadow-indigo-500/25 shadow-lg rotate-45"></div>
-      <span class="font-bold text-4xl text-neutral-900 tracking-tight dark:text-white">{{ appName }}</span>
-    </div>
-    <p class="mx-auto max-w-xl leading-relaxed text-lg">
-      Build modern web applications, APIs, and cloud infrastructure with an elegant, type-safe framework.
-    </p>
-    <div class="flex gap-3 items-center justify-center mt-4">
-      <span class="px-4 py-1.5 font-semibold text-amber-600 text-sm dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 rounded-full dark:border-amber-500/20">Alpha Coming Soon</span>
-      <span class="px-3 py-1 font-medium text-indigo-500 text-xs dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 rounded-full dark:border-indigo-500/20">v{{ appVersion }}</span>
-    </div>
-  </div>
-
-  <!-- Feature Cards -->
-  <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 mb-12">
-    @foreach (features as feature)
-      <a href="{{ feature.url }}" class="block p-6 bg-white/50 dark:bg-neutral-900/50 border border-neutral-200 rounded-xl dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 transition-all group hover:-translate-y-0.5" target="_blank" rel="noopener noreferrer">
-        <div class="flex gap-3 items-center mb-3">
-          <span class="text-indigo-500 dark:text-indigo-400">{!! feature.icon !!}</span>
-          <span class="font-semibold text-base text-neutral-900 dark:text-neutral-100">{{ feature.title }}</span>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="ml-auto h-4 w-4 text-neutral-400 group-hover:text-indigo-500 transition-all group-hover:translate-x-1"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+  <!-- Hero -->
+  <section class="relative overflow-hidden">
+    <div class="mx-auto max-w-6xl px-6 pt-20 pb-24 grid md:grid-cols-2 gap-12 items-center">
+      <div>
+        <span class="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-900">
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
+          Single-ingredient. Always.
+        </span>
+        <h1 class="mt-5 text-5xl md:text-6xl font-bold tracking-tight text-stone-900 leading-[1.05]">
+          Real food.<br>
+          <span class="text-stone-500">Nothing else.</span>
+        </h1>
+        <p class="mt-6 text-lg text-stone-600 leading-relaxed max-w-md">
+          BareBowl makes freeze-dried treats and meals from a single, human-grade ingredient. No grains. No fillers. No mystery.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a href="/products" class="inline-flex items-center gap-2 rounded-full bg-stone-900 px-6 py-3 text-sm font-semibold text-stone-50 hover:bg-stone-800 transition-colors">
+            Shop the bowl
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+          </a>
+          <a href="/about" class="inline-flex items-center gap-2 rounded-full border border-stone-300 px-6 py-3 text-sm font-semibold text-stone-900 hover:border-stone-900 transition-colors">
+            Our standard
+          </a>
         </div>
-        <p class="leading-relaxed text-sm">{{ feature.description }}</p>
-      </a>
-    @endforeach
-  </div>
 
-  <!-- Subscribe Section -->
-  <div class="mb-12 p-8 text-center bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 rounded-2xl dark:border-neutral-800">
-    <h2 class="mb-2 font-semibold text-neutral-900 text-xl dark:text-white">Stay in the loop</h2>
-    <p class="mb-6 text-sm">Get notified when we launch and receive updates on new features.</p>
-    <form class="flex gap-2 mx-auto max-w-md" action="/api/email/subscribe" method="POST">
-      <input
-        type="email"
-        name="email"
-        class="flex-1 placeholder-neutral-400 px-4 py-2.5 text-neutral-900 text-sm dark:text-white bg-white dark:bg-neutral-800 border border-neutral-200 rounded-lg dark:border-neutral-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-        placeholder="you@example.com"
-        required
-      >
-      <button type="submit" class="px-6 py-2.5 font-semibold text-sm text-white bg-indigo-500 hover:bg-indigo-400 rounded-lg transition-colors">
-        Subscribe
-      </button>
-    </form>
-    <p class="mt-3 text-neutral-400 text-xs">No spam, unsubscribe at any time.</p>
-  </div>
-@endsection
+        <div class="mt-10 grid grid-cols-3 gap-4 text-center max-w-md">
+          <div>
+            <p class="font-bold text-2xl text-stone-900">1</p>
+            <p class="mt-1 text-xs uppercase tracking-wider text-stone-500">Ingredient</p>
+          </div>
+          <div>
+            <p class="font-bold text-2xl text-stone-900">0</p>
+            <p class="mt-1 text-xs uppercase tracking-wider text-stone-500">Fillers</p>
+          </div>
+          <div>
+            <p class="font-bold text-2xl text-stone-900">100%</p>
+            <p class="mt-1 text-xs uppercase tracking-wider text-stone-500">Traceable</p>
+          </div>
+        </div>
+      </div>
 
-@section('footer')
-  <div class="pt-8 text-center border-neutral-200 border-t dark:border-neutral-800">
-    <div class="flex gap-2 items-center justify-center text-sm">
-      <a href="https://bun.sh" class="hover:text-indigo-500 transition-colors" target="_blank" rel="noopener noreferrer">Bun</a>
-      <span class="text-neutral-300 dark:text-neutral-700">/</span>
-      <a href="https://www.typescriptlang.org" class="hover:text-indigo-500 transition-colors" target="_blank" rel="noopener noreferrer">TypeScript</a>
-      <span class="text-neutral-300 dark:text-neutral-700">/</span>
-      <a href="https://github.com/stacksjs/stx" class="hover:text-indigo-500 transition-colors" target="_blank" rel="noopener noreferrer">STX</a>
+      <div class="relative">
+        <div class="aspect-[4/5] rounded-3xl bg-gradient-to-br from-stone-200 via-amber-50 to-emerald-50 overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=900&q=80" alt="BareBowl pet food" class="h-full w-full object-cover mix-blend-multiply opacity-95">
+        </div>
+        <div class="absolute -bottom-6 -left-6 bg-stone-50 border border-stone-200 rounded-2xl p-5 shadow-sm max-w-[220px]">
+          <p class="text-xs font-medium uppercase tracking-wider text-stone-500">On the label</p>
+          <p class="mt-2 font-bold text-lg text-stone-900">Beef Liver.</p>
+          <p class="mt-1 text-xs text-stone-500">That's it. That's the list.</p>
+        </div>
+      </div>
     </div>
-  </div>
+  </section>
+
+  <!-- Featured -->
+  <section class="bg-stone-100 py-20">
+    <div class="mx-auto max-w-6xl px-6">
+      <div class="flex items-end justify-between mb-10">
+        <div>
+          <p class="text-xs uppercase tracking-wider text-stone-500 font-medium">Bestsellers</p>
+          <h2 class="mt-2 text-3xl md:text-4xl font-bold text-stone-900 tracking-tight">Pick your protein.</h2>
+        </div>
+        <a href="/products" class="hidden md:inline-flex items-center gap-1 text-sm font-medium text-stone-900 hover:gap-2 transition-all">
+          See all
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+        </a>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+        @foreach (featured as p)
+          <a href="/products/{{ p.slug }}" class="group block bg-stone-50 rounded-2xl overflow-hidden border border-stone-200 hover:border-stone-900 transition-colors">
+            <div class="aspect-square overflow-hidden bg-stone-200">
+              <img src="{{ p.image }}" alt="{{ p.name }}" class="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500">
+            </div>
+            <div class="p-4">
+              <div class="flex items-center justify-between">
+                <span class="inline-flex items-center rounded-full {{ p.accent }} px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">{{ p.species }}</span>
+                <span class="text-xs text-stone-500">{{ p.weight }}</span>
+              </div>
+              <h3 class="mt-3 font-semibold text-stone-900 leading-snug">{{ p.name }}</h3>
+              <p class="mt-1 text-xs text-stone-500">{{ p.ingredient }}</p>
+              <p class="mt-3 font-bold text-stone-900">${{ p.price.toFixed(2) }}</p>
+            </div>
+          </a>
+        @endforeach
+      </div>
+    </div>
+  </section>
+
+  <!-- Principles -->
+  <section class="py-24">
+    <div class="mx-auto max-w-6xl px-6">
+      <div class="max-w-2xl">
+        <p class="text-xs uppercase tracking-wider text-stone-500 font-medium">The standard</p>
+        <h2 class="mt-2 text-3xl md:text-4xl font-bold text-stone-900 tracking-tight">We did the math on every label.</h2>
+        <p class="mt-4 text-stone-600 leading-relaxed">
+          The pet food aisle is full of words designed to obscure. We started BareBowl because we wanted something a vet, a butcher, and a chemist could all read and nod at. So we made the simplest thing: one ingredient.
+        </p>
+      </div>
+
+      <div class="mt-12 grid md:grid-cols-3 gap-6">
+        @foreach (principles as principle, i)
+          <div class="border-l-2 border-stone-900 pl-6">
+            <p class="text-sm font-mono text-stone-500">0{{ i + 1 }}</p>
+            <h3 class="mt-3 text-xl font-bold text-stone-900">{{ principle.title }}</h3>
+            <p class="mt-3 text-stone-600 leading-relaxed text-sm">{{ principle.body }}</p>
+          </div>
+        @endforeach
+      </div>
+    </div>
+  </section>
+
+  <!-- Newsletter -->
+  <section class="bg-stone-900 text-stone-50 py-20">
+    <div class="mx-auto max-w-3xl px-6 text-center">
+      <h2 class="text-3xl md:text-4xl font-bold tracking-tight">Get a treat on us.</h2>
+      <p class="mt-3 text-stone-300 leading-relaxed">
+        Subscribe and we'll send a free freeze-dried sample with your first order.
+      </p>
+      <form class="mt-8 flex flex-col sm:flex-row gap-3 max-w-md mx-auto" action="/api/email/subscribe" method="POST">
+        <input
+          type="email"
+          name="email"
+          required
+          placeholder="you@example.com"
+          class="flex-1 rounded-full bg-stone-800 border border-stone-700 px-5 py-3 text-sm placeholder-stone-500 focus:border-stone-50 focus:outline-none"
+        >
+        <button type="submit" class="rounded-full bg-stone-50 px-6 py-3 text-sm font-semibold text-stone-900 hover:bg-stone-200 transition-colors">
+          Subscribe
+        </button>
+      </form>
+    </div>
+  </section>
 @endsection
