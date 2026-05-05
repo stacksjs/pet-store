@@ -3,7 +3,7 @@ import { db } from '@stacksjs/database'
 import { response } from '@stacksjs/router'
 import { randomUUIDv7 } from 'bun'
 
-const CART_COOKIE = 'barebowl_cart'
+const CART_COOKIE = 'stacks_cart'
 const COOKIE_OPTS = {
   path: '/',
   httpOnly: true,
@@ -14,22 +14,19 @@ const COOKIE_OPTS = {
 /**
  * Add a product to the shopper's cart.
  *
- * - Anonymous, cookie-keyed: a `barebowl_cart` cookie holds a random
+ * - Anonymous, cookie-keyed: a `stacks_cart` cookie holds a random
  *   `session_token` that points at a row in `carts`. We create the cart
  *   on first add so empty visitors don't litter the table.
  * - Idempotent per product: if the same slug is already in the cart we
  *   bump the existing line's quantity instead of inserting a duplicate.
- * - Form vs XHR: when the request looks like a normal HTML form post we
- *   redirect to /cart so the back button works; XHR callers get JSON.
+ * - Form vs XHR: a normal HTML form post redirects to /cart so the
+ *   back button works; XHR callers (the cart drawer) get JSON and
+ *   stay on the current page.
  */
 export default new Action({
   name: 'AddToCartAction',
   description: 'Add a product to the anonymous cart, keyed by cookie session.',
   method: 'POST',
-
-  // Validation is hand-rolled below: the framework's schema.number()
-  // expects a real number, but HTML form bodies arrive as strings.
-  // Coercing in the handler keeps the storefront usable without JS.
 
   async handle(request: any) {
     const slug = String(request.get('slug') ?? '').trim()
@@ -42,7 +39,6 @@ export default new Action({
       .selectFrom('products')
       .where('slug', '=', slug)
       .where('is_available', '=', 1)
-      .where('pet_species', '=', 'dog')
       .selectAll()
       .executeTakeFirst()
 
@@ -65,12 +61,13 @@ export default new Action({
           total: 0,
           currency: 'USD',
           session_token: token,
+          checkout_step: 'cart',
         })
         .execute()
       // Re-read by session_token: bun-query-builder's `returningAll()`
       // returns metadata (lastInsertRowid) on sqlite rather than the
-      // full row, so we can't trust `inserted.id` to resolve cart.id
-      // for the cart_items FK that follows.
+      // full row, so we look up by token to grab a real id we can use
+      // for the cart_items FK.
       cart = await (db as any)
         .selectFrom('carts')
         .where('session_token', '=', token)
@@ -83,7 +80,7 @@ export default new Action({
     const existingItem = await (db as any)
       .selectFrom('cart_items')
       .where('cart_id', '=', cart.id)
-      .where('product_name', '=', product.name)
+      .where('product_sku', '=', product.slug)
       .selectAll()
       .executeTakeFirst()
 
@@ -115,7 +112,7 @@ export default new Action({
 
     await recomputeCartTotals(cart.id)
 
-    // Browser form post → redirect; fetch/XHR → JSON.
+    // Browser form post → redirect; XHR (cart drawer) → JSON.
     const wantsHtml = (request.headers?.get?.('accept') || '').includes('text/html')
     const xhr = request.headers?.get?.('x-requested-with') === 'XMLHttpRequest'
     const redirectTarget = String(request.get('redirect') ?? '/cart')

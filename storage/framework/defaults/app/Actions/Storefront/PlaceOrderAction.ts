@@ -1,30 +1,27 @@
 import { Action } from '@stacksjs/actions'
 import { db } from '@stacksjs/database'
 import { response } from '@stacksjs/router'
+import { totalsFor } from './_shipping'
 
-const CART_COOKIE = 'barebowl_cart'
-const FREE_SHIPPING_THRESHOLD = 40
-const FLAT_SHIPPING = 5
+const CART_COOKIE = 'stacks_cart'
 
 /**
- * Place an order from the cart referenced by the caller's cookie.
+ * Step 3 of multi-step checkout — the actual "place order" call.
  *
- * The flow is intentionally minimal — a real Stripe charge would slot
- * in between the cart lookup and order creation — but it produces a
- * real `orders` + `order_items` graph keyed off a real `customers`
- * row, so the dashboard sees the purchase like any other and the
- * shopper gets a confirmation page they can refresh.
+ * Pulls everything we collected in earlier steps off the cart row
+ * (email + shipping_*), creates a Customer if we don't have one for
+ * this email yet, materializes an Order + OrderItems, decrements
+ * inventory, marks the cart as `converted`, and clears the cookie so
+ * a refresh starts fresh.
  *
- * Cart is marked `converted` and the cookie cleared so a refresh
- * after checkout starts the next bowl from scratch.
+ * No real card is charged — a Stripe call would slot in between the
+ * cart lookup and the order creation. The mock card form on the
+ * payment view doesn't actually submit any sensitive data.
  */
 export default new Action({
-  name: 'CheckoutAction',
+  name: 'PlaceOrderAction',
   description: 'Convert the active cart into an Order + OrderItems.',
   method: 'POST',
-
-  // Validation is hand-rolled below to avoid the framework's
-  // schema.* rules tripping on raw form-body strings.
 
   async handle(request: any) {
     const token = request.cookies?.get?.(CART_COOKIE)
@@ -50,39 +47,36 @@ export default new Action({
     if (items.length === 0)
       return response.json({ error: 'Your cart is empty.' }, { status: 400 })
 
-    const name = String(request.get('customer_name') ?? '').trim()
-    const email = String(request.get('customer_email') ?? '').trim().toLowerCase()
-    const address = String(request.get('address') ?? '').trim()
-
-    if (!name || !email || !address || !email.includes('@'))
-      return response.json({ error: 'Name, valid email, and address are required.' }, { status: 422 })
+    if (!cart.email || !cart.shipping_name || !cart.shipping_address)
+      return response.json({ error: 'Checkout details are incomplete.' }, { status: 422 })
 
     // One customer per email — repeat shoppers reuse the same row so
     // the dashboard's customer total isn't inflated by checkouts.
     let customer = await (db as any)
       .selectFrom('customers')
-      .where('email', '=', email)
+      .where('email', '=', cart.email)
       .selectAll()
       .executeTakeFirst()
 
     if (!customer) {
       await (db as any)
         .insertInto('customers')
-        .values({ name, email })
+        .values({ name: cart.shipping_name, email: cart.email })
         .execute()
-      // Re-read by email — bun-query-builder's RETURNING-based insert
-      // doesn't reliably echo back the row on sqlite (we get metadata
-      // instead), so we look up the row to get a real id.
       customer = await (db as any)
         .selectFrom('customers')
-        .where('email', '=', email)
+        .where('email', '=', cart.email)
         .selectAll()
         .executeTakeFirst()
     }
 
-    const subtotal = items.reduce((s: number, i: any) => s + Number(i.total_price || 0), 0)
-    const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : FLAT_SHIPPING
-    const total = subtotal + shipping
+    const itemsSubtotal = items.reduce((s: number, i: any) => s + Number(i.total_price || 0), 0)
+    const { subtotal, shipping, total } = totalsFor(itemsSubtotal)
+
+    const fullAddress = [
+      cart.shipping_address,
+      [cart.shipping_city, cart.shipping_state, cart.shipping_zip].filter(Boolean).join(', '),
+    ].filter(Boolean).join('\n')
 
     await (db as any)
       .insertInto('orders')
@@ -92,7 +86,7 @@ export default new Action({
         order_type: 'shipping',
         total_amount: total,
         delivery_fee: shipping,
-        delivery_address: address,
+        delivery_address: fullAddress,
       })
       .execute()
     // Re-read latest order for this customer — RETURNING * doesn't
@@ -105,9 +99,7 @@ export default new Action({
       .selectAll()
       .executeTakeFirst()
 
-    // Map cart_items → order_items. We resolve product_id by SKU
-    // (the slug stored on cart_item.product_sku) so the order ties
-    // back to inventory, not just a snapshot.
+    // Map cart_items → order_items, resolving product_id by SKU.
     for (const item of items) {
       const product = await (db as any)
         .selectFrom('products')
@@ -126,11 +118,9 @@ export default new Action({
         .execute()
     }
 
-    // Decrement inventory for what we just sold. Best-effort: we
+    // Decrement inventory for what we just sold. Best-effort — we
     // already accepted the order, so a stock-row miss shouldn't
-    // fail the response. We re-read each row to compute the new
-    // count rather than using a raw `inventory_count - n` expression
-    // because bun-query-builder's `.set()` parameterizes everything.
+    // fail the response.
     for (const item of items) {
       try {
         const product = await (db as any)
@@ -152,7 +142,7 @@ export default new Action({
 
     await (db as any)
       .updateTable('carts')
-      .set({ status: 'converted' })
+      .set({ status: 'converted', checkout_step: 'placed' })
       .where('id', '=', cart.id)
       .execute()
 

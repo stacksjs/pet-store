@@ -2,7 +2,7 @@ import { Action } from '@stacksjs/actions'
 import { db } from '@stacksjs/database'
 import { response } from '@stacksjs/router'
 
-const CART_COOKIE = 'barebowl_cart'
+const CART_COOKIE = 'stacks_cart'
 
 /**
  * Change the quantity of a cart line, or remove it (quantity=0).
