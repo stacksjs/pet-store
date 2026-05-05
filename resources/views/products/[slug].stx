@@ -1,59 +1,62 @@
 @extends('layouts/storefront')
 
-@section('title', 'Product — BareBowl')
+@section('title', 'Product — PetStore')
 
 <script server>
 const Database = require('bun:sqlite').Database
 const path = require('path')
 
-const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/barebowl.sqlite')
+const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/pet-store.sqlite')
 const db = new Database(dbPath, { readonly: true })
 
-// `slug` is injected by stx from the [slug].stx route param.
-const productSlug = (typeof slug !== 'undefined' && slug) || 'beef-liver'
+const productSlug = (typeof slug !== 'undefined' && slug) || ''
 
-const row = db.query(`
+const row = productSlug ? db.query(`
   SELECT slug, name, description, tagline, ingredient, pet_species AS species,
-        weight_grams, price, image_url, sourced_from, guaranteed_analysis,
-        inventory_count
+         weight_grams, price, image_url, sourced_from, guaranteed_analysis,
+         inventory_count
   FROM products
   WHERE slug = ?1 AND is_available = 1 AND pet_species = 'dog'
   LIMIT 1
-`).get(productSlug)
+`).get(productSlug) : null
 
 const found = !!row
 const product = row ? {
   slug: row.slug,
   name: row.name,
   ingredient: row.ingredient,
-  species: row.species,
   weight: `${row.weight_grams}g`,
   price: Number(row.price),
   sourcedFrom: row.sourced_from,
   image: row.image_url,
   tagline: row.tagline || row.description,
-  // guaranteed_analysis is JSON in the DB; parse defensively
-  // because malformed rows shouldn't break the page.
+  // guaranteed_analysis is a JSON string in the DB; parse defensively
+  // since malformed rows shouldn't break the page.
   crude: (() => {
     try { return JSON.parse(row.guaranteed_analysis || '{}') }
     catch { return {} }
   })(),
   inStock: Number(row.inventory_count) > 0,
 } : null
+
+// Extra gallery images. We only have one shot per product right now, so
+// we duplicate it through the gallery; once we have more art the array
+// can hold real alt-angles.
+const galleryImages = product ? [product.image] : []
 </script>
 
 @section('content')
-  <div class="mx-auto px-6 py-12 max-w-6xl">
+  <div class="mx-auto max-w-6xl px-6 py-12">
 
     @if (!found)
-      <div class="py-20 text-center">
-        <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">404</p>
-        <h1 class="mt-2 font-bold text-4xl text-stone-900 tracking-tight">That bowl is empty.</h1>
+      <div class="text-center py-20">
+        <p class="text-xs uppercase tracking-wider text-stone-500 font-medium">404</p>
+        <h1 class="mt-2 text-4xl font-bold tracking-tight text-stone-900">That bowl is empty.</h1>
         <p class="mt-3 text-stone-600">We couldn't find that product.</p>
-        <a href="/products" class="inline-flex mt-6 px-6 py-3 font-semibold text-sm text-stone-50 bg-stone-900 hover:bg-stone-800 rounded-full">Back to the shop</a>
+        <a href="/products" class="mt-6 inline-flex rounded-full bg-stone-900 text-stone-50 px-6 py-3 text-sm font-semibold hover:bg-stone-800">Back to the shop</a>
       </div>
     @else
-      <nav class="mb-8 text-stone-500 text-xs">
+      <nav class="mb-8 text-xs text-stone-500">
         <a href="/" class="hover:text-stone-900">Home</a>
         <span class="mx-2">/</span>
         <a href="/products" class="hover:text-stone-900">Shop</a>
@@ -61,57 +64,59 @@ const product = row ? {
         <span class="text-stone-900">{{ product.name }}</span>
       </nav>
 
-      <div class="grid gap-12 items-start md:grid-cols-2">
-        <div class="aspect-square overflow-hidden bg-stone-100 rounded-3xl">
-          <img src="{{ product.image }}" alt="{{ product.name }}" class="object-cover h-full w-full">
-        </div>
+      <div class="grid md:grid-cols-2 gap-12 items-start">
+        <ProductGallery images="{{ galleryImages }}" alt="{{ product.name }}" />
 
         <div>
-          <span class="inline-flex items-center px-3 py-1 font-semibold text-emerald-900 text-xs tracking-wider uppercase bg-emerald-100 rounded-full">
+          <span class="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900 uppercase tracking-wider">
             For dogs
           </span>
-          <h1 class="mt-4 font-bold text-4xl text-stone-900 tracking-tight">{{ product.name }}</h1>
-          <p class="mt-3 leading-relaxed text-stone-600">{{ product.tagline }}</p>
+          <h1 class="mt-4 text-4xl font-bold tracking-tight text-stone-900">{{ product.name }}</h1>
+          <p class="mt-3 text-stone-600 leading-relaxed">{{ product.tagline }}</p>
 
-          <div class="flex gap-3 items-baseline mt-6">
-            <p class="font-bold text-3xl text-stone-900">${{ product.price.toFixed(2) }}</p>
+          <div class="mt-6 flex items-baseline gap-3">
+            <p class="text-3xl font-bold text-stone-900">${{ product.price.toFixed(2) }}</p>
             <p class="text-sm text-stone-500">/ {{ product.weight }}</p>
           </div>
 
-          <form action="/api/cart/add" method="POST" class="flex flex-col gap-3 sm:flex-row mt-8">
+          <!-- POST goes to the framework's add-to-cart route. The
+               data-stx-add-to-cart attribute on the submit button is
+               picked up by the CartDrawer component, which intercepts
+               the click, posts via XHR, and slides the drawer in
+               instead of doing a full-page redirect. JS-off shoppers
+               still get the form submit + /cart redirect. -->
+          <form action="/api/cart/add" method="POST" class="mt-8 flex flex-col sm:flex-row gap-3">
             <input type="hidden" name="slug" value="{{ product.slug }}">
             <input type="hidden" name="redirect" value="/cart">
-            <input
-              name="quantity"
-              type="number"
-              min="1"
-              max="99"
-              value="1"
-              class="px-5 py-3 w-24 text-center text-sm border border-stone-300 rounded-full focus:border-stone-900 focus:outline-none"
+            <QuantitySelector value="{{ 1 }}" />
+            <button
+              type="submit"
+              data-stx-add-to-cart
+              class="flex-1 rounded-full bg-stone-900 text-stone-50 px-6 py-3 text-sm font-semibold hover:bg-stone-800 transition-colors @if (!product.inStock) opacity-50 cursor-not-allowed @endif"
+              @if (!product.inStock) disabled @endif
             >
-            <button type="submit" class="flex-1 rounded-full bg-stone-900 text-stone-50 px-6 py-3 text-sm font-semibold hover:bg-stone-800 transition-colors @if (!product.inStock) opacity-50 cursor-not-allowed @endif" @if (!product.inStock) disabled @endif>
               @if (product.inStock)
-                Add to bowl
+                Add to cart
               @else
                 Sold out
               @endif
             </button>
           </form>
 
-          <div class="grid gap-4 grid-cols-2 mt-10 text-sm">
-            <div class="p-4 bg-stone-100 rounded-xl">
-              <p class="font-semibold text-[10px] text-stone-500 tracking-wider uppercase">Single ingredient</p>
+          <div class="mt-10 grid grid-cols-2 gap-4 text-sm">
+            <div class="rounded-xl bg-stone-100 p-4">
+              <p class="text-[10px] uppercase tracking-wider text-stone-500 font-semibold">Single ingredient</p>
               <p class="mt-1 font-semibold text-stone-900">{{ product.ingredient }}</p>
             </div>
-            <div class="p-4 bg-stone-100 rounded-xl">
-              <p class="font-semibold text-[10px] text-stone-500 tracking-wider uppercase">Sourced from</p>
+            <div class="rounded-xl bg-stone-100 p-4">
+              <p class="text-[10px] uppercase tracking-wider text-stone-500 font-semibold">Sourced from</p>
               <p class="mt-1 font-semibold text-stone-900">{{ product.sourcedFrom }}</p>
             </div>
           </div>
 
-          <div class="mt-6 p-5 border border-stone-200 rounded-xl">
-            <p class="font-semibold text-[10px] text-stone-500 tracking-wider uppercase">Guaranteed analysis</p>
-            <dl class="grid gap-3 grid-cols-2 mt-3 text-sm">
+          <div class="mt-6 rounded-xl border border-stone-200 p-5">
+            <p class="text-[10px] uppercase tracking-wider text-stone-500 font-semibold">Guaranteed analysis</p>
+            <dl class="mt-3 grid grid-cols-2 gap-3 text-sm">
               <div class="flex justify-between"><dt class="text-stone-500">Crude protein</dt><dd class="font-semibold text-stone-900">{{ product.crude.protein || '—' }}</dd></div>
               <div class="flex justify-between"><dt class="text-stone-500">Crude fat</dt><dd class="font-semibold text-stone-900">{{ product.crude.fat || '—' }}</dd></div>
               <div class="flex justify-between"><dt class="text-stone-500">Crude fiber</dt><dd class="font-semibold text-stone-900">{{ product.crude.fiber || '—' }}</dd></div>

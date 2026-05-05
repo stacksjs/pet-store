@@ -1,17 +1,17 @@
 @extends('layouts/storefront')
 
-@section('title', 'Shop — BareBowl')
-@section('description', 'Single-ingredient freeze-dried treats for dogs. Browse the full catalogue.')
+@section('title', 'Shop — PetStore')
+@section('description', 'Single-ingredient, freeze-dried treats for dogs. Browse the full catalogue.')
 
 <script server>
 const Database = require('bun:sqlite').Database
 const path = require('path')
 
-const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/barebowl.sqlite')
+const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/pet-store.sqlite')
 const db = new Database(dbPath, { readonly: true })
 
 const products = db.query(`
-  SELECT slug, name, ingredient, pet_species AS species, weight_grams, price, image_url, inventory_count
+  SELECT slug, name, ingredient, weight_grams, price, image_url, inventory_count
   FROM products
   WHERE is_available = 1 AND pet_species = 'dog'
   ORDER BY price ASC
@@ -19,49 +19,36 @@ const products = db.query(`
   slug: p.slug,
   name: p.name,
   ingredient: p.ingredient,
-  species: p.species,
   weight: `${p.weight_grams}g`,
   price: Number(p.price),
   image: p.image_url,
-  // "Limited" tag once stock dips below 30 — small storefront signal
-  // that mirrors what the marketing team writes by hand on bigger sites.
-  tag: p.inventory_count < 30 ? 'Limited' : '',
+  badge: p.inventory_count < 30 ? 'Limited' : '',
 }))
 </script>
 
 @section('content')
-  <div class="mx-auto px-6 py-12 max-w-6xl">
+  <div class="mx-auto max-w-6xl px-6 py-12">
 
-    <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-10">
+    <div class="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
       <div>
-        <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">All products</p>
-        <h1 class="mt-2 font-bold text-4xl text-stone-900 tracking-tight">The whole bowl.</h1>
+        <p class="text-xs uppercase tracking-wider text-stone-500 font-medium">All products</p>
+        <h1 class="mt-2 text-4xl font-bold text-stone-900 tracking-tight">The whole bowl.</h1>
         <p class="mt-2 text-stone-600">Single-ingredient cuts, freeze-dried or air-dried. For dogs.</p>
       </div>
     </div>
 
-    <div class="grid gap-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
       @foreach (products as p)
-        <a href="/products/{{ p.slug }}" class="block overflow-hidden bg-stone-50 border border-stone-200 rounded-2xl hover:border-stone-900 transition-colors group">
-          <div class="aspect-square overflow-hidden relative bg-stone-200">
-            <img src="{{ p.image }}" alt="{{ p.name }}" class="object-cover h-full w-full duration-500 transition-transform group-hover:scale-105">
-            @if (p.tag)
-              <span class="absolute left-3 top-3 px-2 py-0.5 font-semibold text-[10px] text-stone-900 tracking-wider uppercase bg-stone-50 rounded-full">{{ p.tag }}</span>
-            @endif
-          </div>
-          <div class="p-4">
-            <div class="flex items-center justify-between">
-              <span class="font-semibold text-[10px] text-stone-500 tracking-wider uppercase">For dogs</span>
-              <span class="text-stone-500 text-xs">{{ p.weight }}</span>
-            </div>
-            <h3 class="mt-2 font-semibold leading-snug text-stone-900">{{ p.name }}</h3>
-            <p class="mt-1 text-stone-500 text-xs">{{ p.ingredient }}</p>
-            <div class="flex items-center justify-between mt-3">
-              <p class="font-bold text-stone-900">${{ p.price.toFixed(2) }}</p>
-              <span class="font-medium text-stone-500 text-xs group-hover:text-stone-900">View →</span>
-            </div>
-          </div>
-        </a>
+        <ProductCard
+          slug="{{ p.slug }}"
+          name="{{ p.name }}"
+          price="{{ p.price }}"
+          image="{{ p.image }}"
+          ingredient="{{ p.ingredient }}"
+          weight="{{ p.weight }}"
+          badge="{{ p.badge }}"
+          speciesLabel="For dogs"
+        />
       @endforeach
     </div>
 

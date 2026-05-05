@@ -1,85 +1,95 @@
+<script server>
+/**
+ * PetStore-branded storefront layout.
+ *
+ * Shadows the framework's `storage/framework/defaults/resources/layouts/
+ * storefront.stx` so we can override brand props (name, mark, footer
+ * columns) without forking the whole layout. The cart-count badge is
+ * still read from the session cookie via `globalThis.requestContext`,
+ * which the framework dev server sets up on every request.
+ */
+
+const Database = require('bun:sqlite').Database
+const path = require('path')
+
+const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/pet-store.sqlite')
+
+let cartCount = 0
+try {
+  const sessionToken = (typeof requestContext !== 'undefined') ? requestContext.cookie('stacks_cart') : null
+  if (sessionToken) {
+    const db = new Database(dbPath, { readonly: true })
+    const cart = db.query(`SELECT total_items FROM carts WHERE session_token = ?1 AND status = 'active' LIMIT 1`).get(sessionToken)
+    if (cart && cart.total_items)
+      cartCount = Number(cart.total_items) || 0
+    db.close()
+  }
+}
+catch { /* leave count at 0 */ }
+
+const headerLinks = [
+  { href: '/products', label: 'Shop' },
+  { href: '/about', label: 'Our Standard' },
+]
+
+const footerColumns = [
+  {
+    title: 'Shop',
+    links: [
+      { href: '/products', label: 'All treats' },
+      { href: '/cart', label: 'Cart' },
+    ],
+  },
+  {
+    title: 'Brand',
+    links: [
+      { href: '/about', label: 'Our standard' },
+      { href: '/about#sourcing', label: 'Sourcing' },
+      { href: '/about#testing', label: 'Testing' },
+    ],
+  },
+  {
+    title: 'Help',
+    links: [
+      { href: '/contact', label: 'Contact' },
+      { href: '/faq', label: 'FAQ' },
+      { href: '/shipping', label: 'Shipping & returns' },
+    ],
+  },
+]
+</script>
+
 <!DOCTYPE html>
-<html lang="en" class="text-stone-900 bg-stone-50">
+<html lang="en" class="bg-stone-50 text-stone-900">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>@yield('title', 'BareBowl — One ingredient. Nothing else.')</title>
+  <title>@yield('title', 'PetStore — Real food for real dogs.')</title>
   <meta name="description" content="@yield('description', 'Single-ingredient, human-grade pet food. Traceable from farm to bowl.')">
 </head>
-<body class="antialiased font-serif text-stone-900 bg-stone-50">
+<body class="bg-stone-50 text-stone-900 font-serif antialiased">
 
-  <!-- Top bar -->
-  <div class="text-stone-100 text-xs bg-stone-900">
-    <div class="mx-auto px-6 py-2 max-w-6xl text-center tracking-wide">
-      Free shipping on orders over $40 · Vet-formulated · Made in the USA
-    </div>
-  </div>
+  <AnnouncementBar message="Free shipping on orders over $40 · Vet-formulated · Made in the USA" />
 
-  <!-- Header -->
-  <header class="sticky top-0 z-30 bg-stone-50/95 border-b border-stone-200 backdrop-blur">
-    <div class="flex items-center justify-between mx-auto px-6 py-5 max-w-6xl">
-      <a href="/" class="flex gap-2 items-center group">
-        <span class="inline-flex items-center justify-center h-9 w-9 font-bold text-sm text-stone-50 bg-stone-900 rounded-full">b.</span>
-        <span class="font-bold text-xl tracking-tight">BareBowl</span>
-      </a>
-
-      <nav class="hidden md:flex gap-8 items-center font-medium text-sm text-stone-700">
-        <a href="/products" class="hover:text-stone-900 transition-colors">Shop</a>
-        <a href="/about" class="hover:text-stone-900 transition-colors">Our Standard</a>
-        <a href="/cart" class="hover:text-stone-900 transition-colors">Cart</a>
-      </nav>
-
-      <div class="flex gap-3 items-center">
-        <a href="/cart" class="inline-flex relative gap-2 items-center px-4 py-2 font-medium text-sm border border-stone-300 rounded-full hover:border-stone-900 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c.51 0 .956-.343 1.087-.835l1.872-7.024A1.125 1.125 0 0019.797 5.25H5.106M7.5 14.25L5.106 5.25M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" /></svg>
-          Cart
-        </a>
-      </div>
-    </div>
-  </header>
+  <Header
+    brandName="PetStore"
+    brandMark="P."
+    links="{{ headerLinks }}"
+    cartCount="{{ cartCount }}"
+  />
 
   <main>
     @yield('content')
   </main>
 
-  <!-- Footer -->
-  <footer class="mt-24 bg-stone-100 border-stone-200 border-t">
-    <div class="grid gap-8 grid-cols-2 md:grid-cols-4 mx-auto px-6 py-12 max-w-6xl text-sm">
-      <div class="col-span-2 md:col-span-1">
-        <span class="inline-flex items-center justify-center h-9 w-9 font-bold text-sm text-stone-50 bg-stone-900 rounded-full">b.</span>
-        <p class="mt-3 leading-relaxed text-stone-600">One ingredient. Nothing else. Real food for real animals.</p>
-      </div>
-      <div>
-        <p class="mb-3 font-semibold text-stone-900">Shop</p>
-        <ul class="space-y-2 text-stone-600">
-          <li><a href="/products" class="hover:text-stone-900">All treats</a></li>
-          <li><a href="/cart" class="hover:text-stone-900">Cart</a></li>
-        </ul>
-      </div>
-      <div>
-        <p class="mb-3 font-semibold text-stone-900">Brand</p>
-        <ul class="space-y-2 text-stone-600">
-          <li><a href="/about" class="hover:text-stone-900">Our standard</a></li>
-          <li><a href="/about#sourcing" class="hover:text-stone-900">Sourcing</a></li>
-          <li><a href="/about#testing" class="hover:text-stone-900">Testing</a></li>
-        </ul>
-      </div>
-      <div>
-        <p class="mb-3 font-semibold text-stone-900">Help</p>
-        <ul class="space-y-2 text-stone-600">
-          <li><a href="/contact" class="hover:text-stone-900">Contact</a></li>
-          <li><a href="/faq" class="hover:text-stone-900">FAQ</a></li>
-          <li><a href="/shipping" class="hover:text-stone-900">Shipping & returns</a></li>
-        </ul>
-      </div>
-    </div>
-    <div class="border-stone-200 border-t">
-      <div class="flex flex-col items-center justify-between md:flex-row mx-auto px-6 py-6 max-w-6xl text-stone-500 text-xs">
-        <p>© {{ new Date().getFullYear() }} BareBowl. All rights reserved.</p>
-        <p class="mt-2 md:mt-0">Built on Stacks · Bun · TypeScript · STX</p>
-      </div>
-    </div>
-  </footer>
+  <Footer
+    brandName="PetStore"
+    brandMark="P."
+    tagline="One ingredient. Nothing else. Real food for real dogs."
+    columns="{{ footerColumns }}"
+  />
+
+  <CartDrawer />
 
   @stack('scripts')
 </body>
