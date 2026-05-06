@@ -24,7 +24,7 @@ const featured = db.query(`
   name: p.name,
   ingredient: p.ingredient,
   weight: `${p.weight_grams}g`,
-  price: Number(p.price),
+  priceLabel: `$${Number(p.price).toFixed(2)}`,
   image: p.image_url,
   badge: p.inventory_count < 30 ? 'Limited' : '',
 }))
@@ -119,7 +119,7 @@ const principles = [
           <ProductCard
             slug="{{ p.slug }}"
             name="{{ p.name }}"
-            price="{{ p.price }}"
+            priceLabel="{{ p.priceLabel }}"
             image="{{ p.image }}"
             ingredient="{{ p.ingredient }}"
             weight="{{ p.weight }}"

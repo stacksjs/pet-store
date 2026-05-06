@@ -115,9 +115,9 @@ const total = subtotal + shipping
         </div>
 
         <OrderSummary
-          subtotal="{{ subtotal }}"
-          shipping="{{ shipping }}"
-          total="{{ total }}"
+          :subtotal="subtotal"
+          :shipping="shipping"
+          :total="total"
           ctaHref="/checkout/contact"
           ctaLabel="Checkout"
           secondaryHref="/products"

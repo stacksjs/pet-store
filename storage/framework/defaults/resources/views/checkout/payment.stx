@@ -89,9 +89,9 @@ const ready = !!cart?.email && !!cart?.shipping_name && !!cart?.shipping_address
 
         <OrderSummary
           :items="items"
-          subtotal="{{ subtotal }}"
-          shipping="{{ shipping }}"
-          total="{{ total }}"
+          :subtotal="subtotal"
+          :shipping="shipping"
+          :total="total"
           :showItems="true"
         />
       </div>

@@ -95,9 +95,9 @@ const ship = {
 
         <OrderSummary
           :items="items"
-          subtotal="{{ subtotal }}"
-          shipping="{{ shipping }}"
-          total="{{ total }}"
+          :subtotal="subtotal"
+          :shipping="shipping"
+          :total="total"
           :showItems="true"
         />
       </div>
