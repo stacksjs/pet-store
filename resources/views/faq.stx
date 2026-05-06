@@ -1,0 +1,109 @@
+@extends('layouts/storefront')
+
+@section('title', 'FAQ — PetStore')
+@section('description', 'Answers to the questions we get most: ingredients, sourcing, sizing, shipping, and returns.')
+
+<script server>
+const sections = [
+  {
+    title: 'Ingredients & sourcing',
+    items: [
+      {
+        q: 'What does "single ingredient" actually mean?',
+        a: 'It means one item on the label. Beef liver = beef liver. Chicken paw = chicken paw. No flavorings, no glycerins, no oils, no sweeteners — nothing else.',
+      },
+      {
+        q: 'Where does the meat come from?',
+        a: 'USDA-inspected facilities only — the same supply chain that feeds people. Most cuts are sourced from small ranches in the US Midwest; we publish the farm and batch on every bag.',
+      },
+      {
+        q: 'Are these treats or a complete diet?',
+        a: 'Treats. Our single-ingredient line is intended as a topper, training reward, or supplement. For complete meals balanced to AAFCO standards, see our forthcoming complete-diet line.',
+      },
+      {
+        q: 'Are they grain-free / keto / raw / freeze-dried?',
+        a: 'Single-ingredient by definition is grain-free. Most are freeze-dried; a few cuts (chews, bones) are air-dried. Either way the protein content is concentrated and water is removed.',
+      },
+    ],
+  },
+  {
+    title: 'For your dog',
+    items: [
+      {
+        q: 'What size dog are these for?',
+        a: 'All sizes. Smaller treats (turkey hearts, chicken hearts) work well for puppies and small breeds. Larger cuts (bully sticks, beef tendons) are better for medium and large dogs.',
+      },
+      {
+        q: 'My dog has allergies. Can they eat these?',
+        a: 'A single-ingredient treat is the easiest way to identify or avoid an allergen. If your vet has flagged a specific protein, our single-protein cuts let you avoid it cleanly. If you\'re unsure, consult your vet first.',
+      },
+      {
+        q: 'How many treats can I give per day?',
+        a: 'Treats — including ours — should make up no more than 10% of your dog\'s daily caloric intake. Calorie counts are printed on every bag.',
+      },
+    ],
+  },
+  {
+    title: 'Shipping, returns & subscriptions',
+    items: [
+      {
+        q: 'How fast does it ship?',
+        a: 'Orders placed before 2pm PT ship same day. Standard delivery is 3–5 business days. Expedited 1–2 day options at checkout.',
+      },
+      {
+        q: 'When is shipping free?',
+        a: 'Orders over $40 ship free anywhere in the US.',
+      },
+      {
+        q: 'Can I return it?',
+        a: 'If your dog won\'t eat it, neither will we. Email us within 30 days for a full refund — no need to ship the bag back.',
+      },
+      {
+        q: 'Do you offer subscriptions?',
+        a: 'Subscriptions ship every 2, 4, or 6 weeks at a 15% discount. You can pause or cancel any time from your account.',
+      },
+    ],
+  },
+]
+</script>
+
+@section('content')
+  <div class="mx-auto px-6 py-20 max-w-3xl">
+
+    <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">Help</p>
+    <h1 class="mt-3 font-bold leading-tight text-5xl text-stone-900 tracking-tight">Frequently asked.</h1>
+    <p class="mt-6 leading-relaxed text-lg text-stone-600">
+      Everything we get asked the most. If you don't see your answer here, drop us a line at
+      <a href="/contact" class="underline underline-offset-4 hover:text-stone-900 decoration-stone-300 hover:decoration-stone-900">/contact</a>.
+    </p>
+
+    @foreach (sections as section)
+      <section class="mt-14">
+        <h2 class="font-bold text-2xl text-stone-900 tracking-tight">{{ section.title }}</h2>
+        <div class="mt-6 border-stone-200 border-y divide-stone-200 divide-y">
+          @foreach (section.items as item)
+            <details class="py-5 group">
+              <summary class="flex gap-6 items-start justify-between list-none cursor-pointer">
+                <span class="font-semibold text-stone-900">{{ item.q }}</span>
+                <span class="inline-flex items-center justify-center mt-1 h-6 w-6 text-stone-500 border border-stone-300 rounded-full transition-transform group-open:rotate-45" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/></svg>
+                </span>
+              </summary>
+              <p class="mt-3 leading-relaxed text-stone-600">{{ item.a }}</p>
+            </details>
+          @endforeach
+        </div>
+      </section>
+    @endforeach
+
+    <div class="mt-20 p-10 text-center text-stone-50 bg-stone-900 rounded-3xl">
+      <h2 class="font-bold text-2xl tracking-tight">Still have a question?</h2>
+      <p class="mt-2 text-stone-300">A real human reads every email. Usually answers within a few hours.</p>
+      <a href="/contact" class="inline-flex gap-2 items-center mt-6 px-6 py-3 font-semibold text-sm text-stone-900 bg-stone-50 hover:bg-stone-200 rounded-full transition-colors">
+        Contact us
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+      </a>
+    </div>
+
+  </div>
+@endsection
