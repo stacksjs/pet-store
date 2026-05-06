@@ -35,22 +35,30 @@ const products = db.query(`
         <h1 class="mt-2 text-4xl font-bold text-stone-900 tracking-tight">The whole bowl.</h1>
         <p class="mt-2 text-stone-600">Single-ingredient cuts, freeze-dried or air-dried. For dogs.</p>
       </div>
+      <p class="text-sm text-stone-500">{{ products.length }} item{{ products.length === 1 ? '' : 's' }}</p>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-      @foreach (products as p)
-        <ProductCard
-          slug="{{ p.slug }}"
-          name="{{ p.name }}"
-          price="{{ p.price }}"
-          image="{{ p.image }}"
-          ingredient="{{ p.ingredient }}"
-          weight="{{ p.weight }}"
-          badge="{{ p.badge }}"
-          speciesLabel="For dogs"
-        />
-      @endforeach
-    </div>
+    @if (products.length === 0)
+      <div class="rounded-3xl border border-dashed border-stone-300 bg-stone-50 p-12 md:p-16 text-center">
+        <p class="text-base text-stone-700 font-medium">Nothing in stock right now.</p>
+        <p class="mt-1 text-sm text-stone-500">Check back soon — fresh batches drop most weeks.</p>
+      </div>
+    @else
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+        @foreach (products as p)
+          <ProductCard
+            slug="{{ p.slug }}"
+            name="{{ p.name }}"
+            price="{{ p.price }}"
+            image="{{ p.image }}"
+            ingredient="{{ p.ingredient }}"
+            weight="{{ p.weight }}"
+            badge="{{ p.badge }}"
+            speciesLabel="For dogs"
+          />
+        @endforeach
+      </div>
+    @endif
 
   </div>
 @endsection

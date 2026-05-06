@@ -74,8 +74,8 @@ const footerColumns = [
   <Header
     brandName="PetStore"
     brandMark="P."
-    links="{{ headerLinks }}"
-    cartCount="{{ cartCount }}"
+    :links="headerLinks"
+    :cartCount="cartCount"
   />
 
   <main>
@@ -86,7 +86,7 @@ const footerColumns = [
     brandName="PetStore"
     brandMark="P."
     tagline="One ingredient. Nothing else. Real food for real dogs."
-    columns="{{ footerColumns }}"
+    :columns="footerColumns"
   />
 
   <CartDrawer />

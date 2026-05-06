@@ -1,6 +1,6 @@
 @extends('layouts/storefront')
 
-@section('title', 'Our Standard — BareBowl')
+@section('title', 'Our Standard — PetStore')
 @section('description', 'How we source, how we test, and why "single-ingredient" is the only ingredient list we believe in.')
 
 @section('content')
@@ -11,7 +11,7 @@
       We left the rest of the aisle on the shelf.
     </h1>
     <p class="mt-6 leading-relaxed text-lg text-stone-600">
-      We started BareBowl because we couldn't find pet food we trusted. Every label had a paragraph of ingredients we'd never put on our own table — gums, glycerins, "natural flavor," "meat meal." So we built the simplest thing we could: one ingredient. Then we put it through human-grade processing and shipped it to you.
+      We started PetStore because we couldn't find pet food we trusted. Every label had a paragraph of ingredients we'd never put on our own table — gums, glycerins, "natural flavor," "meat meal." So we built the simplest thing we could: one ingredient. Then we put it through human-grade processing and shipped it to you.
     </p>
 
     <hr class="my-12 border-stone-200">
@@ -47,7 +47,7 @@
       <div class="p-6 bg-stone-100 rounded-2xl">
         <p class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Try it</p>
         <form class="flex gap-2 mt-3">
-          <input class="flex-1 placeholder-stone-400 px-4 py-2.5 font-mono text-sm bg-stone-50 border border-stone-300 rounded-full focus:border-stone-900 focus:outline-none" placeholder="BB-2026-0421-A">
+          <input class="flex-1 placeholder-stone-400 px-4 py-2.5 font-mono text-sm bg-stone-50 border border-stone-300 rounded-full focus:border-stone-900 focus:outline-none" placeholder="PS-2026-0421-A">
           <button type="submit" class="px-5 py-2.5 font-semibold text-sm text-stone-50 bg-stone-900 hover:bg-stone-800 rounded-full transition-colors">Look up</button>
         </form>
       </div>
