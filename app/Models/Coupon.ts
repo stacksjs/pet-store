@@ -23,6 +23,11 @@ export default defineModel({
 
     useApi: {
       uri: 'coupons',
+      // Public coupon list lets shoppers enumerate every active code,
+      // including unannounced launch promos. Auth-gate the REST surface
+      // and let the storefront validate codes through the dedicated
+      // checkout action.
+      middleware: ['auth'],
     },
 
     observe: true,

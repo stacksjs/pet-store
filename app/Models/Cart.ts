@@ -23,6 +23,12 @@ export default defineModel({
 
     useApi: {
       uri: 'carts',
+      // Cart rows include session_token (the cookie that authorizes a
+      // guest cart) plus customer linkage. A public list would let any
+      // visitor enumerate every shopper's tokens. Storefront access
+      // goes through `/api/cart`/`/api/cart/add`/`/api/cart/update`,
+      // which look the row up by signed cookie — not by id.
+      middleware: ['auth'],
     },
 
     observe: true,

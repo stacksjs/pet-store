@@ -24,6 +24,11 @@ export default defineModel({
 
     useApi: {
       uri: 'customers',
+      // Customers carry name + email + phone + spend history. Auth-gate
+      // every CRUD route — admin dashboards already authenticate, and
+      // the storefront never reads the customers table directly (it
+      // builds carts off cookie-bound sessions).
+      middleware: ['auth'],
     },
 
     observe: true,

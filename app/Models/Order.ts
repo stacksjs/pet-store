@@ -23,6 +23,11 @@ export default defineModel({
 
     useApi: {
       uri: 'orders',
+      // Orders contain shipping addresses, customer linkage, and totals.
+      // Storefront access to "my orders" goes through the dedicated
+      // `/orders/{id}` view that re-validates session ownership; the
+      // raw REST surface is admin-only.
+      middleware: ['auth'],
     },
 
     observe: true,

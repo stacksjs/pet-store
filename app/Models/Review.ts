@@ -23,6 +23,13 @@ export default defineModel({
 
     useApi: {
       uri: 'product-reviews',
+      // Public read of the catalog's reviews is fine — that's what
+      // the product detail page surfaces. Writes go through the
+      // dedicated `/api/reviews/submit` action (verifies order
+      // ownership + sets is_approved=0 for moderation), so the
+      // auto-generated POST/PATCH/DELETE on this resource would just
+      // bypass that flow. Restrict to read-only.
+      routes: ['index', 'show'],
     },
 
     observe: true,

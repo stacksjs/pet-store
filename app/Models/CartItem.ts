@@ -23,6 +23,11 @@ export default defineModel({
 
     useApi: {
       uri: 'cart-items',
+      // Cart items reveal what every shopper has in their basket and
+      // can be filtered by cartId. Auth-gate to admin only — storefront
+      // updates flow through `/api/cart/update` which validates session
+      // ownership before mutating.
+      middleware: ['auth'],
     },
 
     observe: true,

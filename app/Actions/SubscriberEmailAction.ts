@@ -1,6 +1,7 @@
 import { Action } from '@stacksjs/actions'
 import { Subscriber, SubscriberEmail } from '@stacksjs/orm'
 import { db } from '@stacksjs/database'
+import { rateLimit } from '@stacksjs/router'
 import { sendSubscriptionConfirmation } from '../../storage/framework/defaults/app/Mail/SubscriptionConfirmation'
 
 /**
@@ -28,6 +29,14 @@ export default new Action({
   method: 'POST',
 
   async handle(request: RequestInstance) {
+    // Per-IP throttle on the unauthenticated subscribe endpoint. Mirrors
+    // the framework default — kept here too because publish:action
+    // copies the file wholesale and the override would otherwise lose
+    // the limit. 10/min is enough for a real shopper retrying on a
+    // typo and tight enough that a bot tops out before it inflates the
+    // list or burns through the mailer quota.
+    await rateLimit('email-subscribe', 10).per('minute')
+
     const email = request.get('email')
     const source = request.get('source') || 'homepage'
 
@@ -69,7 +78,7 @@ export default new Action({
  * for an unexpected reason — a missing coupon doesn't fail the
  * signup itself.
  */
-async function issueWaitlistCoupon(_source: string): Promise<{
+async function issueWaitlistCoupon(source: string): Promise<{
   code: string
   discountLabel: string
 } | null> {
