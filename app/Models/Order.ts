@@ -24,9 +24,10 @@ export default defineModel({
     useApi: {
       uri: 'orders',
       // Orders contain shipping addresses, customer linkage, and totals.
-      // Storefront access to "my orders" goes through the dedicated
-      // `/orders/{id}` view that re-validates session ownership; the
-      // raw REST surface is admin-only.
+      // Storefront access to a single order goes through the dedicated
+      // `/orders/{uuid}` view, where the uuid in the URL is the
+      // capability — unguessable, sent only to the customer's email.
+      // The raw REST surface here is admin-only.
       middleware: ['auth'],
     },
 

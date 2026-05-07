@@ -9,15 +9,23 @@ const path = require('path')
 const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/stacks.sqlite')
 const db = new Database(dbPath, { readonly: true })
 
-const orderId = Number((typeof id !== 'undefined' && id) || 0)
+// The route param is the order's uuid, not the auto-increment id.
+// The uuid serves as a capability token: anyone with the link can
+// view the order, but the URL itself is unguessable. Sequential
+// numeric ids are intentionally NOT accepted here — falling back
+// to id-lookup would re-open the enumeration hole this page was
+// vulnerable to before. Reject anything that isn't uuid-shaped.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const rawId = (typeof id !== 'undefined' && id) ? String(id) : ''
+const orderUuid = UUID_RE.test(rawId) ? rawId.toLowerCase() : ''
 
-const order = orderId
+const order = orderUuid
   ? db.query(`
       SELECT o.*, c.name AS customer_name, c.email AS customer_email
       FROM orders o
       LEFT JOIN customers c ON c.id = o.customer_id
-      WHERE o.id = ?1
-    `).get(orderId)
+      WHERE o.uuid = ?1
+    `).get(orderUuid)
   : null
 
 const items = order

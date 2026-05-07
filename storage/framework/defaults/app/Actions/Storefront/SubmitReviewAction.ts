@@ -6,7 +6,7 @@ import { readCartCookie } from '../../Storefront/CartCookie'
 const CART_COOKIE = 'stacks_cart'
 
 /**
- * Public review-submission endpoint. Posted from `/orders/{id}` by
+ * Public review-submission endpoint. Posted from `/orders/{uuid}` by
  * the buyer after their order ships.
  *
  * Trust model:
