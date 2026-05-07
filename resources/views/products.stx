@@ -1,7 +1,7 @@
 @extends('layouts/storefront')
 
 @section('title', 'Shop — PetStore')
-@section('description', 'Single-ingredient, freeze-dried treats for dogs. Browse the full catalogue.')
+@section('description', 'Single-ingredient, slow-dehydrated treats for dogs. Browse the full catalogue. Freeze-dried line coming soon.')
 
 <script server>
 const Database = require('bun:sqlite').Database
@@ -27,24 +27,24 @@ const products = db.query(`
 </script>
 
 @section('content')
-  <div class="mx-auto max-w-6xl px-6 py-12">
+  <div class="mx-auto px-6 py-12 max-w-6xl">
 
-    <div class="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+    <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-10">
       <div>
-        <p class="text-xs uppercase tracking-wider text-stone-500 font-medium">All products</p>
-        <h1 class="mt-2 text-4xl font-bold text-stone-900 tracking-tight">The whole bowl.</h1>
-        <p class="mt-2 text-stone-600">Single-ingredient cuts, freeze-dried or air-dried. For dogs.</p>
+        <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">All products</p>
+        <h1 class="mt-2 font-bold text-4xl text-stone-900 tracking-tight">The whole bowl.</h1>
+        <p class="mt-2 text-stone-600">Single-ingredient cuts, slow-dehydrated. For dogs. Freeze-dried line in the works.</p>
       </div>
       <p class="text-sm text-stone-500">{{ products.length }} item{{ products.length === 1 ? '' : 's' }}</p>
     </div>
 
     @if (products.length === 0)
-      <div class="rounded-3xl border border-dashed border-stone-300 bg-stone-50 p-12 md:p-16 text-center">
-        <p class="text-base text-stone-700 font-medium">Nothing in stock right now.</p>
+      <div class="p-12 md:p-16 text-center bg-stone-50 border border-dashed border-stone-300 rounded-3xl">
+        <p class="font-medium text-base text-stone-700">Nothing in stock right now.</p>
         <p class="mt-1 text-sm text-stone-500">Check back soon — fresh batches drop most weeks.</p>
       </div>
     @else
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+      <div class="grid gap-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         @foreach (products as p)
           <ProductCard
             slug="{{ p.slug }}"
@@ -61,4 +61,6 @@ const products = db.query(`
     @endif
 
   </div>
+
+  <WaitlistSection variant="soft" source="freeze-dried-waitlist-products" />
 @endsection

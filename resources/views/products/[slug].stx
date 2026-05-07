@@ -43,10 +43,10 @@ const product = row ? {
   isLow: Number(row.inventory_count) > 0 && Number(row.inventory_count) < 30,
 } : null
 
-// Extra gallery images. We only have one shot per product right now, so
-// we duplicate it through the gallery; once we have more art the array
-// can hold real alt-angles.
-const galleryImages = product ? [product.image] : []
+// Single hero image until we have alt-angles. ProductGallery takes a
+// pre-resolved `image` string (defineProps SSR won't reliably index an
+// array prop in the template), so we hand it the URL directly.
+const heroImage = product ? product.image : ''
 </script>
 
 @section('content')
@@ -71,7 +71,7 @@ const galleryImages = product ? [product.image] : []
       </nav>
 
       <div class="grid md:grid-cols-2 gap-12 items-start">
-        <ProductGallery :images="galleryImages" alt="{{ product.name }}" />
+        <ProductGallery image="{{ heroImage }}" alt="{{ product.name }}" />
 
         <div>
           <div class="flex items-center gap-2 flex-wrap">

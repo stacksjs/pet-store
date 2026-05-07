@@ -21,8 +21,8 @@ const sections = [
         a: 'Treats. Our single-ingredient line is intended as a topper, training reward, or supplement. For complete meals balanced to AAFCO standards, see our forthcoming complete-diet line.',
       },
       {
-        q: 'Are they grain-free / keto / raw / freeze-dried?',
-        a: 'Single-ingredient by definition is grain-free. Most are freeze-dried; a few cuts (chews, bones) are air-dried. Either way the protein content is concentrated and water is removed.',
+        q: 'Are they grain-free / keto / raw / dehydrated / freeze-dried?',
+        a: "Single-ingredient by definition is grain-free. The launch line is slow-dehydrated at low temperature so the protein concentrates and the water leaves. We're working on a freeze-dried line too — drop your email at the bottom of the page and we'll send first dibs when it ships.",
       },
     ],
   },
@@ -106,4 +106,6 @@ const sections = [
     </div>
 
   </div>
+
+  <WaitlistSection variant="soft" source="freeze-dried-waitlist-faq" />
 @endsection
