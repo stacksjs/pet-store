@@ -1,0 +1,162 @@
+@extends('layouts/storefront')
+
+<script server>
+const Database = require('bun:sqlite').Database
+const path = require('path')
+
+const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/pet-store.sqlite')
+const db = new Database(dbPath, { readonly: true })
+
+// Normalize the user's input — they typically copy "PS-2026-0421-A"
+// straight off the bag, but trailing whitespace / pasted line breaks
+// happen, and case-folding the letter suffix saves a "no batch found"
+// roundtrip when somebody types "ps-2026-0421-a".
+const rawCode = (typeof code !== 'undefined' && code) || ''
+const lookupCode = String(rawCode).trim().toUpperCase()
+
+const row = lookupCode ? db.query(`
+  SELECT b.code, b.product_slug, b.processed_at, b.lab_protein, b.lab_fat,
+         b.lab_fiber, b.lab_moisture, b.lab_pathogen_screen, b.lab_partner,
+         b.lab_report_url, b.sourced_from, b.notes,
+         p.name AS product_name, p.image_url AS product_image, p.tagline AS product_tagline
+  FROM product_batches b
+  LEFT JOIN products p ON p.slug = b.product_slug
+  WHERE b.code = ?1
+  LIMIT 1
+`).get(lookupCode) : null
+
+const found = !!row
+const seoTitle = found ? `Batch ${row.code} · PetStore` : `Batch ${lookupCode || '—'} not found · PetStore`
+const seoDescription = found
+  ? `Lab report for batch ${row.code} (${row.product_name}). ${row.lab_pathogen_screen === 'pass' ? 'Pathogen screen passed' : 'Pathogen screen failed'}, processed ${row.processed_at}.`
+  : 'Type the batch code printed on your bag to see the third-party lab report.'
+
+const processedDateLabel = found
+  ? new Date(row.processed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  : ''
+</script>
+
+@section('title', seoTitle)
+@section('description', seoDescription)
+
+@section('content')
+  <div class="mx-auto max-w-3xl px-6 py-16">
+
+    <nav aria-label="Breadcrumb" class="mb-8 text-xs text-stone-500">
+      <ol class="flex items-center gap-2">
+        <li><a href="/" class="hover:text-stone-900">Home</a></li>
+        <li aria-hidden="true">/</li>
+        <li><a href="/standard" class="hover:text-stone-900">Our standard</a></li>
+        <li aria-hidden="true">/</li>
+        <li class="text-stone-900" aria-current="page">Batch {{ lookupCode || '—' }}</li>
+      </ol>
+    </nav>
+
+    @if (!found)
+      <p class="font-mono text-xs uppercase tracking-wider text-stone-500">404</p>
+      <h1 class="mt-3 font-bold leading-tight text-5xl text-stone-900 tracking-tight">No batch by that code.</h1>
+      <p class="mt-6 leading-relaxed text-lg text-stone-600">
+        We couldn't find a batch labeled <code class="font-mono text-stone-900">{{ lookupCode || '—' }}</code> in our records. Either the code is mistyped, or it's from a batch we haven't published yet — every batch goes up within 48 hours of the lab report landing.
+      </p>
+      <p class="mt-4 text-stone-600">If you think this is wrong, drop us a line at <a href="/contact" class="underline decoration-stone-300 underline-offset-4 hover:decoration-stone-900 hover:text-stone-900">/contact</a> with the bag image and we'll figure it out.</p>
+
+      <form action="/batch" method="GET" data-stx-batch-form class="mt-10 flex gap-2 max-w-md">
+        <input
+          type="text"
+          name="code"
+          required
+          autocomplete="off"
+          autocapitalize="characters"
+          placeholder="PS-2026-0421-A"
+          class="flex-1 px-4 py-3 font-mono text-sm bg-stone-50 border border-stone-300 rounded-full focus:border-stone-900 focus:outline-none"
+        >
+        <button type="submit" class="rounded-full bg-stone-900 text-stone-50 px-5 py-3 text-sm font-semibold hover:bg-stone-800 transition-colors">Try again</button>
+      </form>
+    @else
+      <div class="flex items-center gap-2">
+        @if (row.lab_pathogen_screen === 'pass')
+          <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900 uppercase tracking-wider">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
+            Passed
+          </span>
+        @else
+          <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-900 uppercase tracking-wider">
+            <span class="h-1.5 w-1.5 rounded-full bg-rose-600"></span>
+            Failed
+          </span>
+        @endif
+        <p class="font-mono text-xs uppercase tracking-wider text-stone-500">Batch {{ row.code }}</p>
+      </div>
+
+      <h1 class="mt-3 font-bold leading-tight text-4xl text-stone-900 tracking-tight md:text-5xl">{{ row.product_name }}</h1>
+      <p class="mt-2 text-stone-600">{{ row.product_tagline }}</p>
+
+      <dl class="mt-10 grid gap-4 sm:grid-cols-2">
+        <div class="rounded-2xl border border-stone-200 p-5">
+          <dt class="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Processed</dt>
+          <dd class="mt-1 font-semibold text-stone-900">{{ processedDateLabel }}</dd>
+        </div>
+        <div class="rounded-2xl border border-stone-200 p-5">
+          <dt class="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Lab partner</dt>
+          <dd class="mt-1 font-semibold text-stone-900">{{ row.lab_partner || 'Independent' }}</dd>
+        </div>
+        <div class="rounded-2xl border border-stone-200 p-5 sm:col-span-2">
+          <dt class="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Sourced from</dt>
+          <dd class="mt-1 font-semibold text-stone-900">{{ row.sourced_from }}</dd>
+        </div>
+      </dl>
+
+      <h2 class="mt-12 font-bold text-2xl tracking-tight text-stone-900">Guaranteed analysis</h2>
+      <div class="mt-4 rounded-2xl border border-stone-200 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-stone-100 text-xs uppercase tracking-wider text-stone-600">
+            <tr>
+              <th class="text-left px-5 py-3 font-semibold">Metric</th>
+              <th class="text-right px-5 py-3 font-semibold">Result</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-stone-200">
+            <tr><td class="px-5 py-3 font-medium text-stone-900">Crude protein</td><td class="px-5 py-3 text-right tabular-nums text-stone-700">{{ row.lab_protein || '—' }}</td></tr>
+            <tr><td class="px-5 py-3 font-medium text-stone-900">Crude fat</td><td class="px-5 py-3 text-right tabular-nums text-stone-700">{{ row.lab_fat || '—' }}</td></tr>
+            <tr><td class="px-5 py-3 font-medium text-stone-900">Crude fiber</td><td class="px-5 py-3 text-right tabular-nums text-stone-700">{{ row.lab_fiber || '—' }}</td></tr>
+            <tr><td class="px-5 py-3 font-medium text-stone-900">Moisture</td><td class="px-5 py-3 text-right tabular-nums text-stone-700">{{ row.lab_moisture || '—' }}</td></tr>
+            <tr>
+              <td class="px-5 py-3 font-medium text-stone-900">Pathogen screen</td>
+              <td class="px-5 py-3 text-right tabular-nums">
+                @if (row.lab_pathogen_screen === 'pass')
+                  <span class="text-emerald-700 font-semibold">Pass</span>
+                  <span class="text-stone-500"> · salmonella · listeria · heavy metals</span>
+                @else
+                  <span class="text-rose-700 font-semibold">Fail · do not consume</span>
+                @endif
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      @if (row.notes)
+        <div class="mt-8 rounded-2xl bg-stone-100 border border-stone-200 p-5 text-sm text-stone-700 leading-relaxed">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-stone-500 mb-2">Lot notes</p>
+          {{ row.notes }}
+        </div>
+      @endif
+
+      @if (row.lab_report_url)
+        <a href="{{ row.lab_report_url }}" target="_blank" rel="noopener" class="mt-8 inline-flex items-center gap-2 rounded-full bg-stone-900 text-stone-50 px-6 py-3 text-sm font-semibold hover:bg-stone-800 transition-colors">
+          Download full lab report
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+        </a>
+      @endif
+
+      <div class="mt-12 rounded-3xl bg-stone-900 text-stone-50 p-8 text-center">
+        <h2 class="font-bold text-xl tracking-tight">Buy a fresh bag</h2>
+        <p class="mt-1 text-sm text-stone-300">Get the next-batch lab report when the current one ships.</p>
+        <a href="/products/{{ row.product_slug }}" class="mt-4 inline-flex items-center gap-2 rounded-full bg-stone-50 text-stone-900 px-5 py-2.5 text-sm font-semibold hover:bg-stone-200 transition-colors">
+          View {{ row.product_name }}
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+        </a>
+      </div>
+    @endif
+  </div>
+@endsection

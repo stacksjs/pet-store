@@ -44,13 +44,48 @@
       <p class="leading-relaxed text-stone-700">
         Every batch is tested by an independent lab — not us, not the supplier. We screen for salmonella, listeria, and heavy metals, and we publish the result with the batch code on the bag. Type the code on our site, get the lab report.
       </p>
-      <div class="p-6 bg-stone-100 rounded-2xl">
+      <div class="p-6 bg-stone-100 rounded-2xl" data-stx-batch-lookup>
         <p class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Try it</p>
-        <form class="flex gap-2 mt-3">
-          <input class="flex-1 placeholder-stone-400 px-4 py-2.5 font-mono text-sm bg-stone-50 border border-stone-300 rounded-full focus:border-stone-900 focus:outline-none" placeholder="PS-2026-0421-A">
+        {{-- The form lands on /batch/{code} via a small JS hop so the
+            URL is shareable. JS-off shoppers fall back to /batch?code=…
+            which is handled by resources/views/batch.stx. --}}
+        <form class="flex gap-2 mt-3" action="/batch" method="GET" data-stx-batch-form>
+          <input
+            type="text"
+            name="code"
+            required
+            autocomplete="off"
+            autocapitalize="characters"
+            class="flex-1 placeholder-stone-400 px-4 py-2.5 font-mono text-sm bg-stone-50 border border-stone-300 rounded-full focus:border-stone-900 focus:outline-none"
+            placeholder="PS-2026-0421-A"
+          >
           <button type="submit" class="px-5 py-2.5 font-semibold text-sm text-stone-50 bg-stone-900 hover:bg-stone-800 rounded-full transition-colors">Look up</button>
         </form>
+        <p class="mt-3 text-stone-500 text-xs">
+          Try <code class="font-mono">PS-2026-0421-A</code> if you don't have a bag handy.
+        </p>
       </div>
+
+      <script data-stx-scoped>
+      ;(() => {
+        if (window.__stxBatchLookupWired) return
+        window.__stxBatchLookupWired = true
+        document.addEventListener('submit', (e) => {
+          const form = e.target instanceof Element ? e.target.closest('[data-stx-batch-form]') : null
+          if (!form) return
+          const input = form.querySelector('input[name="code"]')
+          if (!input) return
+          const code = String(input.value || '').trim().toUpperCase()
+          if (!code) return
+          e.preventDefault()
+          const target = '/batch/' + encodeURIComponent(code)
+          if (window.stxRouter && typeof window.stxRouter.navigate === 'function')
+            window.stxRouter.navigate(target)
+          else
+            window.location.href = target
+        })
+      })()
+      </script>
     </section>
 
     <hr class="my-12 border-stone-200">

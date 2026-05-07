@@ -1,0 +1,74 @@
+@extends('layouts/storefront')
+
+@section('title', 'Batch lookup · PetStore')
+@section('description', 'Type the batch code printed on your bag to see the third-party lab report.')
+
+@section('content')
+  <div class="mx-auto px-6 py-20 max-w-3xl">
+    <p class="font-mono text-stone-500 text-xs tracking-wider uppercase">Lab reports</p>
+    <h1 class="mt-3 font-bold leading-tight text-5xl text-stone-900 tracking-tight">
+      Type the code on the bag.
+    </h1>
+    <p class="mt-6 leading-relaxed text-lg text-stone-600">
+      Every PetStore bag prints a batch code (like <code class="font-mono text-stone-900">PS-2026-0421-A</code>). Paste it below and we'll show the third-party lab report — protein, fat, fiber, moisture, and pathogen screen — for that exact run.
+    </p>
+
+    <div class="mt-10 p-6 bg-stone-100 rounded-2xl" data-stx-batch-lookup>
+      <form class="flex gap-2" action="/batch" method="GET" data-stx-batch-form>
+        <input
+          type="text"
+          name="code"
+          required
+          autocomplete="off"
+          autocapitalize="characters"
+          class="flex-1 placeholder-stone-400 px-4 py-3 font-mono text-sm bg-stone-50 border border-stone-300 rounded-full focus:border-stone-900 focus:outline-none"
+          placeholder="PS-2026-0421-A"
+          autofocus
+        >
+        <button type="submit" class="px-6 py-3 font-semibold text-sm text-stone-50 bg-stone-900 hover:bg-stone-800 rounded-full transition-colors">
+          Look up
+        </button>
+      </form>
+      <p class="mt-3 text-stone-500 text-xs">
+        Try <code class="font-mono">PS-2026-0421-A</code> for a sample report.
+      </p>
+    </div>
+
+    <script data-stx-scoped>
+    ;(() => {
+      if (window.__stxBatchLookupWired) return
+      window.__stxBatchLookupWired = true
+      // Same handler as /standard so JS-on shoppers land on the canonical
+      // /batch/{code} URL instead of /batch?code=…. Both URLs render the
+      // same page, but the path form is shareable + indexable.
+      document.addEventListener('submit', (e) => {
+        const form = e.target instanceof Element ? e.target.closest('[data-stx-batch-form]') : null
+        if (!form) return
+        const input = form.querySelector('input[name="code"]')
+        if (!input) return
+        const code = String(input.value || '').trim().toUpperCase()
+        if (!code) return
+        e.preventDefault()
+        const target = '/batch/' + encodeURIComponent(code)
+        if (window.stxRouter && typeof window.stxRouter.navigate === 'function')
+          window.stxRouter.navigate(target)
+        else
+          window.location.href = target
+      })
+
+      // JS-on shoppers who land on /batch?code=… via a form post (no
+      // intercept yet because the script hadn't loaded) — promote them
+      // to the canonical path so a refresh keeps the URL clean.
+      const params = new URLSearchParams(window.location.search)
+      const queryCode = (params.get('code') || '').trim().toUpperCase()
+      if (queryCode && window.location.pathname === '/batch') {
+        const target = '/batch/' + encodeURIComponent(queryCode)
+        if (window.stxRouter && typeof window.stxRouter.navigate === 'function')
+          window.stxRouter.navigate(target)
+        else
+          window.location.replace(target)
+      }
+    })()
+    </script>
+  </div>
+@endsection
