@@ -1,0 +1,22 @@
+{
+  "name": "PetStore",
+  "short_name": "PetStore",
+  "icons": [
+    {
+      "src": "/favicons/favicon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicons/favicon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#1c1917",
+  "background_color": "#fafaf9",
+  "display": "standalone",
+  "start_url": "/"
+}
