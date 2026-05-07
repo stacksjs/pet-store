@@ -22,7 +22,7 @@ const sections = [
       },
       {
         q: 'Are they grain-free / keto / raw / dehydrated / freeze-dried?',
-        a: "Single-ingredient by definition is grain-free. The launch line is slow-dehydrated at low temperature so the protein concentrates and the water leaves. We're working on a freeze-dried line too — drop your email at the bottom of the page and we'll send first dibs when it ships.",
+        a: "Single-ingredient by definition is grain-free. The launch line is slow-dehydrated at 165°F for 18–36 hours — low and slow, so the protein concentrates and the water leaves without cooking off the nutrients. We're working on a freeze-dried line too — drop your email at the bottom of the page and we'll send first dibs when it ships.",
       },
     ],
   },

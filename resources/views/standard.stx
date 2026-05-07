@@ -32,9 +32,21 @@
         </li>
         <li class="flex gap-3">
           <span class="flex-shrink-0 mt-1.5 h-1.5 w-1.5 bg-stone-900 rounded-full"></span>
-          <span><strong class="text-stone-900">Fresh-frozen, not preserved.</strong> Cuts go from slaughter to freeze-dryer in under 48 hours.</span>
+          <span><strong class="text-stone-900">Fresh-frozen, not preserved.</strong> Cuts go from slaughter to dehydrator in under 48 hours.</span>
         </li>
       </ul>
+    </section>
+
+    <hr class="my-12 border-stone-200">
+
+    <section id="process" class="space-y-6">
+      <h2 class="font-bold text-3xl text-stone-900 tracking-tight">How we dehydrate</h2>
+      <p class="leading-relaxed text-stone-700">
+        Low and slow. Every cut spends <strong class="text-stone-900">18 to 36 hours at 165°F</strong> — long enough to pull the water out, low enough to leave the protein, fats, and micronutrients where they belong. No oils, no glycerin, no smoke. The bag at the end weighs a third of what we started with, and that's the entire transformation.
+      </p>
+      <p class="leading-relaxed text-stone-700">
+        Freeze-drying is the next line we're building. Different process, different shelf life, different texture — and we'll ship it when it's actually ready. Drop your email at the bottom of the page if you want first dibs.
+      </p>
     </section>
 
     <hr class="my-12 border-stone-200">
