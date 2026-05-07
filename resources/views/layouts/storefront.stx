@@ -29,7 +29,8 @@ catch { /* leave count at 0 */ }
 
 const headerLinks = [
   { href: '/products', label: 'Shop' },
-  { href: '/about', label: 'Our Standard' },
+  { href: '/about', label: 'About' },
+  { href: '/standard', label: 'Our Standard' },
 ]
 
 const footerColumns = [
@@ -43,9 +44,10 @@ const footerColumns = [
   {
     title: 'Brand',
     links: [
-      { href: '/about', label: 'Our standard' },
-      { href: '/about#sourcing', label: 'Sourcing' },
-      { href: '/about#testing', label: 'Testing' },
+      { href: '/about', label: 'About us' },
+      { href: '/standard', label: 'Our standard' },
+      { href: '/standard#sourcing', label: 'Sourcing' },
+      { href: '/standard#testing', label: 'Testing' },
     ],
   },
   {
@@ -60,20 +62,20 @@ const footerColumns = [
 </script>
 
 <!DOCTYPE html>
-<html lang="en" class="bg-stone-50 text-stone-900">
+<html lang="en" class="text-stone-900 bg-stone-50">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>@yield('title', 'PetStore — Real food for real dogs.')</title>
   <meta name="description" content="@yield('description', 'Single-ingredient, human-grade pet food. Traceable from farm to bowl.')">
   {{-- Constrain the SPA router to swap only <main>; @stacksjs/stx hardcodes
-       container:'body' in its auto-injected __stxRouterConfig, which would
-       swap the entire body and erase the header/footer on every nav.
-       STX_ROUTER_OPTIONS is the last value in the router's Object.assign, so
-       this wins. --}}
+      container:'body' in its auto-injected __stxRouterConfig, which would
+      swap the entire body and erase the header/footer on every nav.
+      STX_ROUTER_OPTIONS is the last value in the router's Object.assign, so
+      this wins. --}}
   <script>window.STX_ROUTER_OPTIONS = { container: 'main' };</script>
 </head>
-<body class="bg-stone-50 text-stone-900 font-serif antialiased">
+<body class="antialiased font-serif text-stone-900 bg-stone-50">
 
   <AnnouncementBar message="Free shipping on orders over $40 · Vet-formulated · Made in the USA" />
 

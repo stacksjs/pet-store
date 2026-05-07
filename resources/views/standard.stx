@@ -1,0 +1,75 @@
+@extends('layouts/storefront')
+
+@section('title', 'Our Standard — PetStore')
+@section('description', 'How we source, how we test, and why "single-ingredient" is the only ingredient list we believe in.')
+
+@section('content')
+  <article class="mx-auto px-6 py-20 max-w-3xl">
+
+    <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">Our standard</p>
+    <h1 class="mt-3 font-bold leading-tight text-5xl text-stone-900 tracking-tight">
+      We left the rest of the aisle on the shelf.
+    </h1>
+    <p class="mt-6 leading-relaxed text-lg text-stone-600">
+      We started PetStore because we couldn't find pet food we trusted. Every label had a paragraph of ingredients we'd never put on our own table — gums, glycerins, "natural flavor," "meat meal." So we built the simplest thing we could: one ingredient. Then we put it through human-grade processing and shipped it to you.
+    </p>
+
+    <hr class="my-12 border-stone-200">
+
+    <section id="sourcing" class="space-y-6">
+      <h2 class="font-bold text-3xl text-stone-900 tracking-tight">Sourcing</h2>
+      <p class="leading-relaxed text-stone-700">
+        Every ingredient comes from a USDA-inspected facility. Same supply chain that feeds people — not the leftovers from one. We work directly with small ranches and wild-catch operations, and we publish the source of every batch on the bag.
+      </p>
+      <ul class="space-y-3 text-stone-700">
+        <li class="flex gap-3">
+          <span class="flex-shrink-0 mt-1.5 h-1.5 w-1.5 bg-stone-900 rounded-full"></span>
+          <span><strong class="text-stone-900">No "meal."</strong> We use whole muscle, organ, or skin — never rendered powders.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="flex-shrink-0 mt-1.5 h-1.5 w-1.5 bg-stone-900 rounded-full"></span>
+          <span><strong class="text-stone-900">No multi-country sourcing.</strong> A bag of beef liver came from one farm, in one batch.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="flex-shrink-0 mt-1.5 h-1.5 w-1.5 bg-stone-900 rounded-full"></span>
+          <span><strong class="text-stone-900">Fresh-frozen, not preserved.</strong> Cuts go from slaughter to freeze-dryer in under 48 hours.</span>
+        </li>
+      </ul>
+    </section>
+
+    <hr class="my-12 border-stone-200">
+
+    <section id="testing" class="space-y-6">
+      <h2 class="font-bold text-3xl text-stone-900 tracking-tight">Testing</h2>
+      <p class="leading-relaxed text-stone-700">
+        Every batch is tested by an independent lab — not us, not the supplier. We screen for salmonella, listeria, and heavy metals, and we publish the result with the batch code on the bag. Type the code on our site, get the lab report.
+      </p>
+      <div class="p-6 bg-stone-100 rounded-2xl">
+        <p class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Try it</p>
+        <form class="flex gap-2 mt-3">
+          <input class="flex-1 placeholder-stone-400 px-4 py-2.5 font-mono text-sm bg-stone-50 border border-stone-300 rounded-full focus:border-stone-900 focus:outline-none" placeholder="PS-2026-0421-A">
+          <button type="submit" class="px-5 py-2.5 font-semibold text-sm text-stone-50 bg-stone-900 hover:bg-stone-800 rounded-full transition-colors">Look up</button>
+        </form>
+      </div>
+    </section>
+
+    <hr class="my-12 border-stone-200">
+
+    <section id="science" class="space-y-6">
+      <h2 class="font-bold text-3xl text-stone-900 tracking-tight">Vet-formulated. Pet-approved.</h2>
+      <p class="leading-relaxed text-stone-700">
+        We work with board-certified veterinary nutritionists to make sure single-ingredient treats fit into a complete diet. Treats are not a meal — and we'll always tell you so. For meals, our complete diet line is balanced to AAFCO standards.
+      </p>
+    </section>
+
+    <div class="mt-16 p-10 text-center text-stone-50 bg-stone-900 rounded-3xl">
+      <h2 class="font-bold text-3xl tracking-tight">Read the bag. Believe the bag.</h2>
+      <p class="mt-3 text-stone-300">That's the entire pitch.</p>
+      <a href="/products" class="inline-flex gap-2 items-center mt-6 px-6 py-3 font-semibold text-sm text-stone-900 bg-stone-50 hover:bg-stone-200 rounded-full transition-colors">
+        Shop the bowl
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+      </a>
+    </div>
+
+  </article>
+@endsection

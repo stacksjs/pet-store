@@ -1,70 +1,94 @@
 @extends('layouts/storefront')
 
-@section('title', 'Our Standard — PetStore')
-@section('description', 'How we source, how we test, and why "single-ingredient" is the only ingredient list we believe in.')
+@section('title', 'About — PetStore')
+@section('description', 'Why we started PetStore. Three very different dogs in one household, one ingredient on every label.')
+
+<script server>
+// The pack — the actual reason this brand exists. Each card mirrors
+// what we learned about feeding *that* dog and how it shaped the
+// catalog. Keep order biggest → smallest so the layout reads well on
+// the grid (large card top-left, small card bottom-right).
+const pack = [
+  {
+    name: 'Atlas',
+    breed: 'Alaskan Malamute × German Shepherd',
+    role: 'Lead taster',
+    note: 'Eighty pounds of opinion. Wouldn\'t touch anything that smelled processed; loved the beef liver from the first batch we ever cut. He\'s why our chews skew big and our portions skew generous.',
+  },
+  {
+    name: 'Rocco',
+    breed: 'Kangal',
+    role: 'Quality control',
+    note: 'A working livestock guardian by lineage and a couch potato by personality. He needs joint-supporting treats year-round — the chicken paws are on his standing order.',
+  },
+  {
+    name: 'Mochi',
+    breed: 'Maltipoo',
+    role: 'Sensitivity tester',
+    note: 'Twelve pounds and a notoriously sensitive stomach. If a recipe upsets her, it doesn\'t ship. The single-ingredient rule isn\'t a marketing pitch — it\'s the only way we could feed her without guesswork.',
+  },
+]
+</script>
 
 @section('content')
   <article class="mx-auto px-6 py-20 max-w-3xl">
 
-    <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">Our standard</p>
+    <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">About</p>
     <h1 class="mt-3 font-bold leading-tight text-5xl text-stone-900 tracking-tight">
-      We left the rest of the aisle on the shelf.
+      Three dogs. One label.
     </h1>
     <p class="mt-6 leading-relaxed text-lg text-stone-600">
-      We started PetStore because we couldn't find pet food we trusted. Every label had a paragraph of ingredients we'd never put on our own table — gums, glycerins, "natural flavor," "meat meal." So we built the simplest thing we could: one ingredient. Then we put it through human-grade processing and shipped it to you.
+      We're a small team of dog owners who couldn't find treats we trusted for our own pack. So we started making them ourselves — the same way we'd cook for a person we cared about: one real thing at a time.
     </p>
 
     <hr class="my-12 border-stone-200">
 
-    <section id="sourcing" class="space-y-6">
-      <h2 class="font-bold text-3xl text-stone-900 tracking-tight">Sourcing</h2>
+    <section class="space-y-6">
+      <h2 class="font-bold text-2xl text-stone-900 tracking-tight">Why we started</h2>
       <p class="leading-relaxed text-stone-700">
-        Every ingredient comes from a USDA-inspected facility. Same supply chain that feeds people — not the leftovers from one. We work directly with small ranches and wild-catch operations, and we publish the source of every batch on the bag.
+        At any given dinnertime in our house there are three dogs lined up at three very different bowls — an eighty-pound Malamute–Shepherd mix, a Kangal who thinks he's a lap dog, and a twelve-pound Maltipoo with a sensitive stomach. None of the three could eat the same off-the-shelf "premium" treats without one of them ending up at the vet. So we kept stripping ingredients until the labels finally read the way our own pantry does: one thing, traceable, real.
       </p>
-      <ul class="space-y-3 text-stone-700">
-        <li class="flex gap-3">
-          <span class="flex-shrink-0 mt-1.5 h-1.5 w-1.5 bg-stone-900 rounded-full"></span>
-          <span><strong class="text-stone-900">No "meal."</strong> We use whole muscle, organ, or skin — never rendered powders.</span>
-        </li>
-        <li class="flex gap-3">
-          <span class="flex-shrink-0 mt-1.5 h-1.5 w-1.5 bg-stone-900 rounded-full"></span>
-          <span><strong class="text-stone-900">No multi-country sourcing.</strong> A bag of beef liver came from one farm, in one batch.</span>
-        </li>
-        <li class="flex gap-3">
-          <span class="flex-shrink-0 mt-1.5 h-1.5 w-1.5 bg-stone-900 rounded-full"></span>
-          <span><strong class="text-stone-900">Fresh-frozen, not preserved.</strong> Cuts go from slaughter to freeze-dryer in under 48 hours.</span>
-        </li>
-      </ul>
+      <p class="leading-relaxed text-stone-700">
+        That's the whole pitch. PetStore is what we feed our dogs. Everything we ship is something we've already tested on a Malamute, a Kangal, and a Maltipoo over a long weekend, and they've voted on it.
+      </p>
     </section>
 
     <hr class="my-12 border-stone-200">
 
-    <section id="testing" class="space-y-6">
-      <h2 class="font-bold text-3xl text-stone-900 tracking-tight">Testing</h2>
-      <p class="leading-relaxed text-stone-700">
-        Every batch is tested by an independent lab — not us, not the supplier. We screen for salmonella, listeria, and heavy metals, and we publish the result with the batch code on the bag. Type the code on our site, get the lab report.
-      </p>
-      <div class="p-6 bg-stone-100 rounded-2xl">
-        <p class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Try it</p>
-        <form class="flex gap-2 mt-3">
-          <input class="flex-1 placeholder-stone-400 px-4 py-2.5 font-mono text-sm bg-stone-50 border border-stone-300 rounded-full focus:border-stone-900 focus:outline-none" placeholder="PS-2026-0421-A">
-          <button type="submit" class="px-5 py-2.5 font-semibold text-sm text-stone-50 bg-stone-900 hover:bg-stone-800 rounded-full transition-colors">Look up</button>
-        </form>
+    <section>
+      <h2 class="font-bold text-2xl text-stone-900 tracking-tight">The pack</h2>
+      <p class="mt-2 leading-relaxed text-stone-600">The reason any of this exists.</p>
+
+      <div class="grid gap-6 md:grid-cols-3 mt-8">
+        @foreach (pack as dog)
+          <article class="p-6 bg-stone-50 border border-stone-200 rounded-2xl">
+            <p class="font-semibold text-[10px] text-emerald-700 tracking-wider uppercase">{{ dog.role }}</p>
+            <h3 class="mt-2 font-bold text-stone-900 text-xl tracking-tight">{{ dog.name }}</h3>
+            <p class="text-stone-500 text-xs">{{ dog.breed }}</p>
+            <p class="mt-4 leading-relaxed text-sm text-stone-700">{{ dog.note }}</p>
+          </article>
+        @endforeach
       </div>
     </section>
 
     <hr class="my-12 border-stone-200">
 
-    <section id="science" class="space-y-6">
-      <h2 class="font-bold text-3xl text-stone-900 tracking-tight">Vet-formulated. Pet-approved.</h2>
+    <section class="space-y-6">
+      <h2 class="font-bold text-2xl text-stone-900 tracking-tight">How we work</h2>
       <p class="leading-relaxed text-stone-700">
-        We work with board-certified veterinary nutritionists to make sure single-ingredient treats fit into a complete diet. Treats are not a meal — and we'll always tell you so. For meals, our complete diet line is balanced to AAFCO standards.
+        Small batches, three dogs, one rule: if Atlas, Rocco, and Mochi can all eat it without an issue, it ships. If any of them won't touch it, we don't sell it.
+      </p>
+      <p class="leading-relaxed text-stone-700">
+        We're a team of three humans and three dogs. We don't have a fulfillment center the size of a Costco. That's deliberate — it's the only way we know how to keep the standard tight and the labels short.
+      </p>
+      <p class="leading-relaxed text-stone-700">
+        For the longer story on sourcing, processing, and the third-party batch testing we publish on every bag, see <a href="/standard" class="text-stone-900 underline underline-offset-4 decoration-stone-300 hover:decoration-stone-900">our standard</a>.
       </p>
     </section>
 
     <div class="mt-16 p-10 text-center text-stone-50 bg-stone-900 rounded-3xl">
       <h2 class="font-bold text-3xl tracking-tight">Read the bag. Believe the bag.</h2>
-      <p class="mt-3 text-stone-300">That's the entire pitch.</p>
+      <p class="mt-3 text-stone-300">If the three of them eat it, your dog will too.</p>
       <a href="/products" class="inline-flex gap-2 items-center mt-6 px-6 py-3 font-semibold text-sm text-stone-900 bg-stone-50 hover:bg-stone-200 rounded-full transition-colors">
         Shop the bowl
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
