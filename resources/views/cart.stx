@@ -5,11 +5,16 @@
 <script server>
 const Database = require('bun:sqlite').Database
 const path = require('path')
+const { readCartToken } = require(path.resolve(process.cwd(), 'resources/lib/cart-cookie.cjs'))
 
 const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/stacks.sqlite')
 const db = new Database(dbPath, { readonly: true })
 
-const token = (typeof requestContext !== 'undefined') ? requestContext.cookie('stacks_cart') : null
+// readCartToken verifies the HMAC and strips the signature suffix.
+// Tampered / forged cookies return null and the view renders an
+// empty cart — same fallback as a missing cookie.
+const rawCookie = (typeof requestContext !== 'undefined') ? requestContext.cookie('stacks_cart') : null
+const token = readCartToken(rawCookie)
 let items = []
 let cart = null
 

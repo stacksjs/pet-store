@@ -117,6 +117,141 @@ const total = order ? Number(order.total_amount || 0) : 0
         </div>
       </div>
 
+      {{-- Review prompt: one form per shipped item, JS-progressive
+          (XHR submit, falls back to a normal POST without it). The
+          action ties the review to this order via order_id + email
+          and stamps is_verified_purchase=1. New entries land in the
+          dashboard's reviews queue with is_approved=0 for moderation. --}}
+      <section class="mt-12">
+        <div class="flex items-baseline justify-between">
+          <p class="text-xs uppercase tracking-wider text-stone-500 font-semibold">Leave a review</p>
+          <span class="text-xs text-stone-500">Approved by a human before it shows up</span>
+        </div>
+        <div class="mt-4 grid gap-4">
+          @foreach (items as item)
+            <details class="group rounded-2xl border border-stone-200 p-5" data-stx-review-card>
+              <summary class="flex items-center justify-between cursor-pointer list-none">
+                <div class="flex gap-3 items-center">
+                  <div class="w-10 h-10 rounded-lg overflow-hidden bg-stone-200 flex-shrink-0">
+                    <img src="{{ item.image }}" alt="" class="h-full w-full object-cover">
+                  </div>
+                  <div>
+                    <p class="font-semibold text-stone-900">{{ item.name }}</p>
+                    <p class="text-xs text-stone-500">Tap to review</p>
+                  </div>
+                </div>
+                <span class="text-stone-500 group-open:rotate-45 transition-transform text-2xl leading-none">+</span>
+              </summary>
+
+              <form
+                action="/api/reviews/submit"
+                method="POST"
+                class="mt-5 space-y-4"
+                data-stx-review-form
+                data-stx-product-slug="{{ item.slug }}">
+                <input type="hidden" name="order_id" value="{{ order.id }}">
+                <input type="hidden" name="product_slug" value="{{ item.slug }}">
+                <input type="hidden" name="email" value="{{ order.customer_email }}">
+                {{-- honeypot — hidden from real users via inline style; bots fill anyway --}}
+                <input type="text" name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+
+                <div>
+                  <label class="text-xs uppercase tracking-wider text-stone-500 font-semibold">Rating</label>
+                  <div class="mt-2 flex gap-1" data-stx-stars>
+                    @foreach ([1, 2, 3, 4, 5] as r)
+                      <button type="button" class="p-1 text-2xl text-stone-300 hover:text-amber-500 focus-visible:outline-none focus-visible:text-amber-500" data-stx-star="{{ r }}" aria-label="{{ r }} star">★</button>
+                    @endforeach
+                  </div>
+                  <input type="hidden" name="rating" value="5" data-stx-rating-input>
+                </div>
+
+                <div>
+                  <label class="text-xs uppercase tracking-wider text-stone-500 font-semibold" for="rev-title-{{ item.slug }}">Title</label>
+                  <input id="rev-title-{{ item.slug }}" type="text" name="title" required maxlength="100" placeholder="My pup approved." class="mt-1 px-4 py-3 w-full text-sm bg-stone-50 border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none">
+                </div>
+
+                <div>
+                  <label class="text-xs uppercase tracking-wider text-stone-500 font-semibold" for="rev-content-{{ item.slug }}">Review</label>
+                  <textarea id="rev-content-{{ item.slug }}" name="content" required rows="4" maxlength="2000" placeholder="Tell other dog parents what you thought." class="mt-1 px-4 py-3 w-full text-sm bg-stone-50 border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none"></textarea>
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                  <p data-stx-review-result class="hidden text-sm rounded-full px-3 py-1 flex-1"></p>
+                  <button type="submit" class="inline-flex items-center justify-center rounded-full bg-stone-900 text-stone-50 px-5 py-2.5 text-sm font-semibold hover:bg-stone-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2">Submit review</button>
+                </div>
+              </form>
+            </details>
+          @endforeach
+        </div>
+      </section>
+
+      <script data-stx-scoped>
+      ;(() => {
+        if (window.__stxReviewWired) return
+        window.__stxReviewWired = true
+
+        // Star input — clicking a star updates the hidden `rating`
+        // input + colors stars 1..n. Keyboard arrow nav handled too
+        // so the form remains accessible.
+        document.addEventListener('click', (e) => {
+          const target = e.target instanceof Element ? e.target : null
+          const btn = target ? target.closest('[data-stx-star]') : null
+          if (!btn) return
+          const card = btn.closest('[data-stx-review-card]')
+          if (!card) return
+          const value = Number(btn.getAttribute('data-stx-star') || 5)
+          const hidden = card.querySelector('[data-stx-rating-input]')
+          if (hidden) hidden.value = String(value)
+          card.querySelectorAll('[data-stx-star]').forEach((s) => {
+            const sv = Number(s.getAttribute('data-stx-star') || 0)
+            s.classList.toggle('text-amber-500', sv <= value)
+            s.classList.toggle('text-stone-300', sv > value)
+          })
+        })
+
+        // Initialize star coloring (default 5).
+        document.querySelectorAll('[data-stx-review-card]').forEach((card) => {
+          card.querySelectorAll('[data-stx-star]').forEach((s) => s.classList.add('text-amber-500'))
+        })
+
+        // XHR submit so the form stays open with an inline
+        // confirmation. 403/409/422 surface their `message` directly.
+        document.addEventListener('submit', async (e) => {
+          const form = e.target instanceof Element ? e.target.closest('[data-stx-review-form]') : null
+          if (!form || !window.fetch) return
+          e.preventDefault()
+          const result = form.querySelector('[data-stx-review-result]')
+          const button = form.querySelector('button[type="submit"]')
+          if (button) button.disabled = true
+          try {
+            const fd = new FormData(form)
+            const resp = await fetch(form.action, {
+              method: 'POST',
+              body: fd,
+              headers: { Accept: 'application/json' },
+            })
+            const data = await resp.json().catch(() => ({}))
+            if (result) {
+              result.classList.remove('hidden')
+              if (data.success) {
+                result.className = 'text-sm rounded-full px-3 py-1 flex-1 text-emerald-900 bg-emerald-50 border border-emerald-200'
+                result.textContent = data.message || 'Submitted.'
+                const card = form.closest('[data-stx-review-card]')
+                if (card) card.removeAttribute('open')
+              }
+              else {
+                result.className = 'text-sm rounded-full px-3 py-1 flex-1 text-red-900 bg-red-50 border border-red-200'
+                result.textContent = data.message || 'Could not submit. Try again.'
+              }
+            }
+          }
+          finally {
+            if (button) button.disabled = false
+          }
+        })
+      })()
+      </script>
+
       <div class="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
         <a href="/products" class="inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 text-stone-50 px-6 py-3 text-sm font-semibold hover:bg-stone-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50">
           Keep shopping

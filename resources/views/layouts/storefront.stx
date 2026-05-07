@@ -11,12 +11,16 @@
 
 const Database = require('bun:sqlite').Database
 const path = require('path')
+const { readCartToken } = require(path.resolve(process.cwd(), 'resources/lib/cart-cookie.cjs'))
 
 const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/pet-store.sqlite')
 
 let cartCount = 0
 try {
-  const sessionToken = (typeof requestContext !== 'undefined') ? requestContext.cookie('stacks_cart') : null
+  const rawCookie = (typeof requestContext !== 'undefined') ? requestContext.cookie('stacks_cart') : null
+  // Verified token only — a forged cookie shouldn't influence the
+  // header badge any more than it does the cart page itself.
+  const sessionToken = readCartToken(rawCookie)
   if (sessionToken) {
     const db = new Database(dbPath, { readonly: true })
     const cart = db.query(`SELECT total_items FROM carts WHERE session_token = ?1 AND status = 'active' LIMIT 1`).get(sessionToken)
@@ -85,6 +89,18 @@ const footerColumns = [
   <meta name="twitter:title" content="@yield('title', 'PetStore — Real food for real dogs.')">
   <meta name="twitter:description" content="@yield('description', 'Single-ingredient, human-grade pet food. Traceable from farm to bowl.')">
   <meta name="twitter:image" content="@yield('og_image', '/images/og.jpg')">
+
+  {{-- Favicon set produced by `bun scripts/build-favicons.ts`. The
+      .ico is a real multi-resolution container (16+32+48 PNG entries)
+      so old browsers + Windows Explorer pick a sensible size. The
+      site.webmanifest references the 192/512 PNG icons for PWA
+      install prompts. --}}
+  <link rel="icon" type="image/x-icon" href="/favicons/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicons/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png">
+  <link rel="manifest" href="/favicons/site.webmanifest">
+  <meta name="theme-color" content="#1c1917">
 
   {{-- Constrain the SPA router to swap only <main>; @stacksjs/stx hardcodes
       container:'body' in its auto-injected __stxRouterConfig, which would

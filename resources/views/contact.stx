@@ -44,7 +44,7 @@
       </ul>
     </div>
 
-    <form action="/api/email/subscribe" method="POST" class="lg:sticky lg:top-28 p-8 space-y-5 bg-stone-50 border border-stone-200 rounded-3xl">
+    <form action="/api/contact" method="POST" class="lg:sticky lg:top-28 p-8 space-y-5 bg-stone-50 border border-stone-200 rounded-3xl" data-stx-contact-form>
       <div>
         <p class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Send a note</p>
         <h2 class="mt-1 font-bold text-2xl text-stone-900 tracking-tight">We'll get back today.</h2>
@@ -62,13 +62,63 @@
 
       <div>
         <label class="font-semibold text-stone-500 text-xs tracking-wider uppercase" for="contact-message">Message</label>
-        <textarea id="contact-message" name="message" rows="5" class="mt-1 px-4 py-3 w-full text-sm bg-stone-50 border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none"></textarea>
+        <textarea id="contact-message" name="message" rows="5" required class="mt-1 px-4 py-3 w-full text-sm bg-stone-50 border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none"></textarea>
       </div>
 
       <button type="submit" class="px-6 py-3 w-full font-semibold text-sm text-stone-50 bg-stone-900 hover:bg-stone-800 rounded-full transition-colors">Send</button>
 
+      <p data-stx-contact-result class="hidden p-3 text-center text-sm rounded-2xl"></p>
       <p class="text-center text-stone-500 text-xs">We never share your email. Promise.</p>
     </form>
+
+    <script data-stx-scoped>
+    ;(() => {
+      if (window.__stxContactWired) return
+      window.__stxContactWired = true
+      // XHR submit so the user stays on the page and can read the
+      // confirmation inline. Falls back to a plain POST if fetch is
+      // unavailable. The 429 path surfaces the rate-limit message
+      // instead of a confusing "We could not send" — same response
+      // shape from the action either way.
+      document.addEventListener('submit', async (e) => {
+        const form = e.target instanceof Element ? e.target.closest('[data-stx-contact-form]') : null
+        if (!form || !window.fetch) return
+        e.preventDefault()
+        const result = form.querySelector('[data-stx-contact-result]')
+        const button = form.querySelector('button[type="submit"]')
+        if (button) button.disabled = true
+
+        try {
+          const fd = new FormData(form)
+          const resp = await fetch(form.action, {
+            method: 'POST',
+            body: fd,
+            headers: { Accept: 'application/json' },
+          })
+          const data = await resp.json().catch(() => ({}))
+          if (result) {
+            result.classList.remove('hidden')
+            if (resp.status === 429) {
+              result.className = 'p-3 text-center text-sm rounded-2xl bg-amber-50 text-amber-900 border border-amber-200'
+              result.textContent = 'Hold up — too many sends from this network. Try again in a minute.'
+            }
+            else if (data.success) {
+              result.className = 'p-3 text-center text-sm rounded-2xl bg-emerald-50 text-emerald-900 border border-emerald-200'
+              result.textContent = "Got it. We'll be back to you shortly."
+              form.reset()
+            }
+            else {
+              result.className = 'p-3 text-center text-sm rounded-2xl bg-red-50 text-red-900 border border-red-200'
+              result.textContent = data.message || 'Something went wrong. Try again.'
+            }
+          }
+        }
+        finally {
+          if (button) button.disabled = false
+        }
+      })
+    })()
+    </script>
 
   </div>
 @endsection
