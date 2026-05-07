@@ -10,19 +10,19 @@
 // the grid (large card top-left, small card bottom-right).
 const pack = [
   {
-    name: 'Atlas',
+    name: 'Buddy',
     breed: 'Alaskan Malamute × German Shepherd',
     role: 'Lead taster',
     note: 'Eighty pounds of opinion. Wouldn\'t touch anything that smelled processed; loved the beef liver from the first batch we ever cut. He\'s why our chews skew big and our portions skew generous.',
   },
   {
-    name: 'Rocco',
+    name: 'Moses',
     breed: 'Kangal',
     role: 'Quality control',
     note: 'A working livestock guardian by lineage and a couch potato by personality. He needs joint-supporting treats year-round — the chicken paws are on his standing order.',
   },
   {
-    name: 'Mochi',
+    name: 'Lulu',
     breed: 'Maltipoo',
     role: 'Sensitivity tester',
     note: 'Twelve pounds and a notoriously sensitive stomach. If a recipe upsets her, it doesn\'t ship. The single-ingredient rule isn\'t a marketing pitch — it\'s the only way we could feed her without guesswork.',
@@ -76,7 +76,7 @@ const pack = [
     <section class="space-y-6">
       <h2 class="font-bold text-2xl text-stone-900 tracking-tight">How we work</h2>
       <p class="leading-relaxed text-stone-700">
-        Small batches, three dogs, one rule: if Atlas, Rocco, and Mochi can all eat it without an issue, it ships. If any of them won't touch it, we don't sell it.
+        Small batches, three dogs, one rule: if Buddy, Moses, and Lulu can all eat it without an issue, it ships. If any of them won't touch it, we don't sell it.
       </p>
       <p class="leading-relaxed text-stone-700">
         We're a team of three humans and three dogs. We don't have a fulfillment center the size of a Costco. That's deliberate — it's the only way we know how to keep the standard tight and the labels short.

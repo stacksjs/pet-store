@@ -88,8 +88,20 @@ const principles = [
       </div>
 
       <div class="relative">
-        <div class="aspect-[4/5] overflow-hidden bg-gradient-to-br from-stone-200 to-emerald-50 via-amber-50 rounded-3xl">
-          <img src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=900&q=80" alt="Pet food" class="object-cover h-full w-full mix-blend-multiply opacity-95">
+        <div class="flex aspect-[4/5] overflow-hidden items-center justify-center bg-gradient-to-br from-amber-50 to-stone-200 via-stone-100 rounded-3xl">
+          {{-- Local product photo, not stock photography. The hero used to be a
+              Frenchie in a yellow hoodie which had nothing to do with the
+              brand — the chicken-paws shot is what's actually on the shelf
+              and matches the "On the label" callout below it. Above-the-fold
+              image so we set fetchpriority="high" and skip loading="lazy". --}}
+          <img
+            src="/images/products/chicken-paws.jpg"
+            alt="Whole, dehydrated chicken paws — the only ingredient in PetStore's joint-supporting chew"
+            class="object-contain h-[88%] w-[88%]"
+            fetchpriority="high"
+            width="900"
+            height="1125"
+          >
         </div>
         <div class="absolute p-5 max-w-[220px] bg-stone-50 border border-stone-200 rounded-2xl shadow-sm -bottom-6 -left-6">
           <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">On the label</p>

@@ -1,7 +1,5 @@
 @extends('layouts/storefront')
 
-@section('title', 'Product — PetStore')
-
 <script server>
 const Database = require('bun:sqlite').Database
 const path = require('path')
@@ -47,10 +45,48 @@ const product = row ? {
 // pre-resolved `image` string (defineProps SSR won't reliably index an
 // array prop in the template), so we hand it the URL directly.
 const heroImage = product ? product.image : ''
+
+// Per-page SEO. Dynamic title/description that include the product name +
+// price + tagline so the social card and search snippet are useful.
+// Also build a JSON-LD Product blob — Google reads this and renders the
+// product card with price/availability in search; <script type="ld+json">
+// goes in <head> via @push('head').
+const seoTitle = product ? `${product.name} · PetStore` : 'Product not found · PetStore'
+const seoDescription = product ? `${product.tagline} · $${product.price.toFixed(2)} · ${product.weight}` : ''
+const seoImage = product ? product.image : ''
+// JSON-LD Product schema. Google reads application/ld+json from
+// anywhere in the document and surfaces price / availability /
+// image directly in search results — a free SEO win as long as the
+// values stay accurate.
+const productSchema = product ? JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  'name': product.name,
+  'description': product.tagline,
+  'image': product.image,
+  'sku': product.slug,
+  'brand': { '@type': 'Brand', 'name': 'PetStore' },
+  'offers': {
+    '@type': 'Offer',
+    'price': product.price.toFixed(2),
+    'priceCurrency': 'USD',
+    'availability': product.inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+    'url': `/products/${product.slug}`,
+  },
+}) : ''
 </script>
+
 
 @section('content')
   <div class="mx-auto max-w-6xl px-6 py-12">
+
+    {{-- JSON-LD Product schema. Crawlers pick this up anywhere in the
+         document; placement near the top of <main> keeps it close to
+         the data it describes. STX's script rewriter passes through
+         non-JS script types (application/ld+json) unchanged. --}}
+    @if (productSchema)
+      <script type="application/ld+json">{!! productSchema !!}</script>
+    @endif
 
     @if (!found)
       <div class="text-center py-20">

@@ -68,12 +68,32 @@ const footerColumns = [
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>@yield('title', 'PetStore — Real food for real dogs.')</title>
   <meta name="description" content="@yield('description', 'Single-ingredient, human-grade pet food. Traceable from farm to bowl.')">
+
+  {{-- Open Graph + Twitter card. Keep the values fed by the same @yield
+      slots used for <title> / <meta description> so per-page overrides
+      (set with @section('title', '…')) flow through to social previews
+      without each view having to re-define them. The og:image points
+      at /images/og.jpg — see public/images/og.jpg; storefront pages
+      can override with @section('og_image', '…') for product-specific
+      cards. --}}
+  <meta property="og:type" content="@yield('og_type', 'website')">
+  <meta property="og:site_name" content="PetStore">
+  <meta property="og:title" content="@yield('title', 'PetStore — Real food for real dogs.')">
+  <meta property="og:description" content="@yield('description', 'Single-ingredient, human-grade pet food. Traceable from farm to bowl.')">
+  <meta property="og:image" content="@yield('og_image', '/images/og.jpg')">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="@yield('title', 'PetStore — Real food for real dogs.')">
+  <meta name="twitter:description" content="@yield('description', 'Single-ingredient, human-grade pet food. Traceable from farm to bowl.')">
+  <meta name="twitter:image" content="@yield('og_image', '/images/og.jpg')">
+
   {{-- Constrain the SPA router to swap only <main>; @stacksjs/stx hardcodes
       container:'body' in its auto-injected __stxRouterConfig, which would
       swap the entire body and erase the header/footer on every nav.
       STX_ROUTER_OPTIONS is the last value in the router's Object.assign, so
       this wins. --}}
   <script>window.STX_ROUTER_OPTIONS = { container: 'main' };</script>
+
+  @stack('head')
 </head>
 <body class="antialiased font-serif text-stone-900 bg-stone-50">
 
