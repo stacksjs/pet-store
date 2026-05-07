@@ -10,7 +10,7 @@ const db = new Database(dbPath, { readonly: true })
 const productSlug = (typeof slug !== 'undefined' && slug) || ''
 
 const row = productSlug ? db.query(`
-  SELECT slug, name, description, tagline, ingredient, pet_species AS species,
+  SELECT id, slug, name, description, tagline, ingredient, pet_species AS species,
          weight_grams, price, image_url, sourced_from, guaranteed_analysis,
          inventory_count
   FROM products
@@ -41,10 +41,59 @@ const product = row ? {
   isLow: Number(row.inventory_count) > 0 && Number(row.inventory_count) < 30,
 } : null
 
+// Pull approved reviews for this product, newest first. is_approved
+// gates user-submitted reviews from showing before moderation; the
+// seed marks every starter row approved so the storefront has
+// content out of the box.
+const reviewRows = product ? db.query(`
+  SELECT rating, title, content, is_verified_purchase, purchase_date, created_at
+  FROM reviews
+  WHERE product_id = ?1 AND is_approved = 1
+  ORDER BY is_featured DESC, helpful_votes DESC, created_at DESC
+  LIMIT 6
+`).all(row.id) : []
+
+const reviews = reviewRows.map((r) => {
+  const date = r.created_at ? new Date(r.created_at) : null
+  return {
+    rating: Number(r.rating) || 0,
+    // Pre-build a star string so the template doesn't have to range-render.
+    starsFilled: '★'.repeat(Math.max(0, Math.min(5, Number(r.rating) || 0))),
+    starsEmpty: '☆'.repeat(Math.max(0, 5 - (Number(r.rating) || 0))),
+    title: r.title || '',
+    content: r.content || '',
+    verified: !!r.is_verified_purchase,
+    dateLabel: date && !Number.isNaN(date.getTime())
+      ? date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+      : '',
+  }
+})
+
+// Aggregate over the approved set (not the truncated render set above),
+// so the displayed average matches the catalog and JSON-LD.
+const reviewAgg = product ? db.query(`
+  SELECT COUNT(*) AS n, AVG(rating) AS avg
+  FROM reviews WHERE product_id = ?1 AND is_approved = 1
+`).get(row.id) : null
+const reviewCount = Number(reviewAgg?.n || 0)
+const reviewAverage = Number(reviewAgg?.avg || 0)
+const reviewAverageLabel = reviewAverage ? reviewAverage.toFixed(1) : ''
+
 // Single hero image until we have alt-angles. ProductGallery takes a
 // pre-resolved `image` string (defineProps SSR won't reliably index an
 // array prop in the template), so we hand it the URL directly.
 const heroImage = product ? product.image : ''
+
+// Build the responsive srcset from the local /images/products/<slug>.jpg
+// convention. Variants live alongside the original — see
+// scripts/optimize-product-images.ts. Empty string when the URL doesn't
+// match (e.g. third-party CDN); ProductGallery falls back to plain src.
+const PRODUCT_VARIANT_WIDTHS = [400, 600, 900]
+const heroImageSrcset = (() => {
+  const m = String(heroImage).match(/^(\/images\/products\/[a-z0-9-]+)\.(jpe?g|png)$/i)
+  if (!m) return ''
+  return PRODUCT_VARIANT_WIDTHS.map(w => `${m[1]}-${w}.jpg ${w}w`).join(', ')
+})()
 
 // Per-page SEO. Dynamic title/description that include the product name +
 // price + tagline so the social card and search snippet are useful.
@@ -73,9 +122,30 @@ const productSchema = product ? JSON.stringify({
     'availability': product.inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
     'url': `/products/${product.slug}`,
   },
+  // Conditionally include aggregateRating so Google's rich product
+  // card shows stars + count. Skipped if there are zero reviews —
+  // schema.org requires reviewCount >= 1 when the property is present.
+  ...(reviewCount > 0 ? {
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: reviewAverage.toFixed(1),
+      reviewCount,
+      bestRating: 5,
+      worstRating: 1,
+    },
+  } : {}),
 }) : ''
 </script>
 
+{{-- Per-page SEO. The inline @section('name', expr) form accepts an
+     expression as the second arg (stx ≥ 0.2.51), so the seo* vars
+     above flow straight into the storefront layout's @yield slots.
+     og_type is overridden to "product" so OpenGraph crawlers render
+     the social card with the product object type. --}}
+@section('title', seoTitle)
+@section('description', seoDescription)
+@section('og_image', seoImage)
+@section('og_type', 'product')
 
 @section('content')
   <div class="mx-auto max-w-6xl px-6 py-12">
@@ -107,7 +177,7 @@ const productSchema = product ? JSON.stringify({
       </nav>
 
       <div class="grid md:grid-cols-2 gap-12 items-start">
-        <ProductGallery image="{{ heroImage }}" alt="{{ product.name }}" />
+        <ProductGallery image="{{ heroImage }}" imageSrcset="{{ heroImageSrcset }}" alt="{{ product.name }}" />
 
         <div>
           <div class="flex items-center gap-2 flex-wrap">
@@ -127,6 +197,14 @@ const productSchema = product ? JSON.stringify({
           </div>
           <h1 class="mt-4 text-4xl font-bold tracking-tight text-stone-900">{{ product.name }}</h1>
           <p class="mt-3 text-stone-600 leading-relaxed">{{ product.tagline }}</p>
+
+          @if (reviewCount > 0)
+            <a href="#reviews" class="mt-3 inline-flex items-center gap-2 text-sm text-stone-700 hover:text-stone-900">
+              <span class="text-amber-500" aria-hidden="true">{{ '★'.repeat(Math.round(reviewAverage)) }}{{ '☆'.repeat(5 - Math.round(reviewAverage)) }}</span>
+              <span class="font-semibold text-stone-900">{{ reviewAverageLabel }}</span>
+              <span class="text-stone-500">({{ reviewCount }} review{{ reviewCount === 1 ? '' : 's' }})</span>
+            </a>
+          @endif
 
           <div class="mt-6 flex items-baseline gap-3">
             <p class="text-3xl font-bold text-stone-900">${{ product.price.toFixed(2) }}</p>
@@ -158,6 +236,25 @@ const productSchema = product ? JSON.stringify({
             </button>
           </form>
 
+          {{-- Subscribe & Save — preview affordance. The recurring-
+               delivery flow itself is gated behind the freeze-dried
+               launch (Stripe subscriptions wire up at the same time),
+               so the CTA points back at the waitlist where shoppers
+               can grab the FREEZE15 coupon code in advance. --}}
+          <div class="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 flex items-start gap-3">
+            <span class="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+            </span>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-emerald-900">Subscribe &amp; save 15%</p>
+              <p class="mt-1 text-sm text-emerald-900/80 leading-relaxed">
+                Recurring delivery every 4 or 6 weeks ships with the freeze-dried launch.
+                <a href="/#waitlist" class="font-semibold underline decoration-emerald-300 underline-offset-4 hover:decoration-emerald-700">Join the waitlist</a>
+                to lock in <span class="font-mono">FREEZE15</span> for your first subscription order.
+              </p>
+            </div>
+          </div>
+
           <div class="mt-10 grid grid-cols-2 gap-4 text-sm">
             <div class="rounded-xl bg-stone-100 p-4">
               <p class="text-[10px] uppercase tracking-wider text-stone-500 font-semibold">Single ingredient</p>
@@ -180,6 +277,47 @@ const productSchema = product ? JSON.stringify({
           </div>
         </div>
       </div>
+
+      @if (reviews.length > 0)
+        <section id="reviews" class="mt-20 max-w-3xl">
+          <div class="flex items-end justify-between gap-6 flex-wrap">
+            <div>
+              <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">From the bowl</p>
+              <h2 class="mt-2 font-bold text-3xl text-stone-900 tracking-tight md:text-4xl">What dogs (and their humans) say.</h2>
+            </div>
+            <div class="text-right">
+              <p class="text-3xl font-bold text-stone-900 tabular-nums" aria-label="Average rating {{ reviewAverageLabel }} out of 5">{{ reviewAverageLabel }}</p>
+              <p class="text-amber-500 text-lg" aria-hidden="true">{{ '★'.repeat(Math.round(reviewAverage)) }}{{ '☆'.repeat(5 - Math.round(reviewAverage)) }}</p>
+              <p class="text-xs text-stone-500">{{ reviewCount }} review{{ reviewCount === 1 ? '' : 's' }}</p>
+            </div>
+          </div>
+
+          <ul class="mt-10 space-y-6">
+            @foreach (reviews as r)
+              <li class="rounded-2xl border border-stone-200 p-6">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-amber-500" aria-label="Rated {{ r.rating }} out of 5">
+                    <span aria-hidden="true">{{ r.starsFilled }}<span class="text-stone-300">{{ r.starsEmpty }}</span></span>
+                  </span>
+                  @if (r.verified)
+                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-900 uppercase tracking-wider">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                      Verified buyer
+                    </span>
+                  @endif
+                  @if (r.dateLabel)
+                    <span class="ml-auto text-xs text-stone-500">{{ r.dateLabel }}</span>
+                  @endif
+                </div>
+                @if (r.title)
+                  <h3 class="mt-3 font-semibold text-stone-900">{{ r.title }}</h3>
+                @endif
+                <p class="mt-2 text-sm text-stone-700 leading-relaxed">{{ r.content }}</p>
+              </li>
+            @endforeach
+          </ul>
+        </section>
+      @endif
     @endif
 
   </div>

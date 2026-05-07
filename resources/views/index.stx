@@ -10,6 +10,19 @@ const path = require('path')
 const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/pet-store.sqlite')
 const db = new Database(dbPath, { readonly: true })
 
+// Build a `srcset` string for a local product image. ts-images writes
+// resized JPEG variants alongside the original at the breakpoints below
+// (see scripts/optimize-product-images.ts). For URLs that don't match
+// the local-product convention (third-party CDN, raw seed data) we
+// return an empty string and the component falls back to plain src.
+const PRODUCT_VARIANT_WIDTHS = [400, 600, 900]
+function productSrcset(imageUrl) {
+  const m = String(imageUrl || '').match(/^(\/images\/products\/[a-z0-9-]+)\.(jpe?g|png)$/i)
+  if (!m)
+    return ''
+  return PRODUCT_VARIANT_WIDTHS.map(w => `${m[1]}-${w}.jpg ${w}w`).join(', ')
+}
+
 // Featured = the 4 cheapest in-stock dog treats. We only sell dog
 // treats, but the species filter stays so future SKUs can't sneak
 // onto the home page accidentally.
@@ -26,6 +39,7 @@ const featured = db.query(`
   weight: `${p.weight_grams}g`,
   priceLabel: `$${Number(p.price).toFixed(2)}`,
   image: p.image_url,
+  imageSrcset: productSrcset(p.image_url),
   badge: p.inventory_count < 30 ? 'Limited' : '',
 }))
 
@@ -133,6 +147,7 @@ const principles = [
             name="{{ p.name }}"
             priceLabel="{{ p.priceLabel }}"
             image="{{ p.image }}"
+            imageSrcset="{{ p.imageSrcset }}"
             ingredient="{{ p.ingredient }}"
             weight="{{ p.weight }}"
             badge="{{ p.badge }}"

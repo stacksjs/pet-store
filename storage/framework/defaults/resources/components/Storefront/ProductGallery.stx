@@ -6,6 +6,10 @@ interface ProductGalleryProps {
    *  tried to derive `mainImage = images[0]` inside the component.
    *  Format at the call site, the way ProductCard takes priceLabel. */
   image: string
+  /** Pre-built srcset (e.g.
+   *  "/images/products/x-400.jpg 400w, /images/products/x-600.jpg 600w, …").
+   *  Empty string falls back to a plain `src=image`. */
+  imageSrcset?: string
   /** Optional secondary images for thumbnails. The first thumb mirrors
    *  the hero so we don't show the same picture twice. */
   thumbs?: string[]
@@ -14,6 +18,7 @@ interface ProductGalleryProps {
 
 const {
   image = '',
+  imageSrcset = '',
   thumbs = [],
   alt = '',
 } = defineProps<ProductGalleryProps>()
@@ -22,10 +27,16 @@ const {
 <div class="space-y-4" data-stx-gallery>
   <!-- Hero image — above the fold on every product detail page, so we
       set fetchpriority=high and skip lazy. width/height locks the
-      aspect-square box so layout doesn't shift while it decodes. -->
+      aspect-square box so layout doesn't shift while it decodes.
+
+      The hero renders ~525 CSS px on desktop (max-w-6xl, 2-col grid)
+      and full-width on mobile, so a 600w variant covers most desktop
+      paints and 900w handles 2x DPR / large viewports. -->
   <div class="aspect-square overflow-hidden bg-stone-100 rounded-3xl">
     <img
       src="{{ image }}"
+      srcset="{{ imageSrcset }}"
+      sizes="(min-width: 768px) 50vw, 100vw"
       alt="{{ alt }}"
       data-stx-gallery-main
       width="900"

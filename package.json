@@ -72,7 +72,8 @@
     "stacks": "workspace:*"
   },
   "devDependencies": {
-    "better-dx": "^0.2.12"
+    "better-dx": "^0.2.12",
+    "ts-images": "^0.1.7"
   },
   "workspaces": [
     "storage/framework/**"
