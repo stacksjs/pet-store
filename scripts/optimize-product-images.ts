@@ -47,7 +47,7 @@ async function main(): Promise<void> {
   // generated last run so the script is re-runnable without
   // recursively reprocessing variants.
   const originals = all.filter(f =>
-    /\.(jpe?g|png)$/i.test(f) && !/-\d+\.(jpe?g|png)$/i.test(f),
+    /\.(?:jpe?g|png)$/i.test(f) && !/-\d+\.(?:jpe?g|png)$/i.test(f),
   )
 
   if (originals.length === 0) {
@@ -101,4 +101,5 @@ async function main(): Promise<void> {
   console.log(`avg variant: ${(totalOut / count / 1024).toFixed(0)} KB`)
 }
 
+// eslint-disable-next-line ts/no-top-level-await -- this file is invoked as a CLI script (`bun scripts/optimize-product-images.ts`), not imported. Top-level await is the simplest entry point.
 await main()

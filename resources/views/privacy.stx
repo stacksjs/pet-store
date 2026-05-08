@@ -1,0 +1,44 @@
+@extends('layouts/storefront')
+
+@section('title', 'Privacy — PetStore')
+@section('description', 'How PetStore collects, uses, and protects your information.')
+
+@section('content')
+  <article class="mx-auto px-6 py-16 max-w-3xl prose prose-stone">
+    <p class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Last updated: 8 May 2026</p>
+    <h1 class="mt-3 font-bold text-4xl text-stone-900 tracking-tight">Privacy Policy</h1>
+    <p class="mt-6 leading-relaxed text-stone-700">
+      We're a small team selling dog treats. We collect the minimum personal information needed to ship you orders, keep your account working, and answer your support emails — nothing more.
+    </p>
+
+    <h2 class="mt-12 font-bold text-2xl text-stone-900">What we collect</h2>
+    <ul class="mt-4 space-y-2 text-stone-700">
+      <li><strong>Order info:</strong> name, shipping address, phone (for delivery), email (for receipts and support).</li>
+      <li><strong>Payment:</strong> processed by our payment provider — we never see or store your card number.</li>
+      <li><strong>Account:</strong> the email you use to sign in. We don't currently use passwords.</li>
+      <li><strong>Site analytics:</strong> aggregate page-view counts. No cross-site tracking, no advertising cookies.</li>
+    </ul>
+
+    <h2 class="mt-12 font-bold text-2xl text-stone-900">What we don't do</h2>
+    <ul class="mt-4 space-y-2 text-stone-700">
+      <li>Sell, rent, or share your information with anyone outside the small list of vendors we need to fulfill your order (the carrier, the payment processor).</li>
+      <li>Send you marketing email unless you've explicitly subscribed at /contact.</li>
+      <li>Track you across other websites.</li>
+    </ul>
+
+    <h2 class="mt-12 font-bold text-2xl text-stone-900">Your rights</h2>
+    <p class="mt-4 text-stone-700">
+      You can ask us to delete or export your data at any time — email <a href="mailto:hello@petstore.example" class="font-semibold underline">hello@petstore.example</a> from the address on the account. We respond within 7 days.
+    </p>
+
+    <h2 class="mt-12 font-bold text-2xl text-stone-900">Cookies</h2>
+    <p class="mt-4 text-stone-700">
+      We use a single signed session cookie to remember your cart and (if you've signed in) your account. We don't set tracking or advertising cookies.
+    </p>
+
+    <h2 class="mt-12 font-bold text-2xl text-stone-900">Contact</h2>
+    <p class="mt-4 text-stone-700">
+      Questions, complaints, or data requests: <a href="mailto:hello@petstore.example" class="font-semibold underline">hello@petstore.example</a>.
+    </p>
+  </article>
+@endsection

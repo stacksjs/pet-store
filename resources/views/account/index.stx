@@ -1,0 +1,120 @@
+@extends('layouts/storefront')
+
+@section('title', 'Your account — PetStore')
+@section('description', 'Your PetStore account dashboard — orders, addresses, and reorder shortcuts.')
+
+<script server>
+const Database = require('bun:sqlite').Database
+const path = require('path')
+const { readCustomerId } = require(path.resolve(process.cwd(), 'resources/lib/customer-cookie.cjs'))
+
+const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/stacks.sqlite')
+
+const rawCookie = (typeof requestContext !== 'undefined') ? requestContext.cookie('stacks_customer') : null
+const customerId = readCustomerId(rawCookie)
+
+let customer = null
+let recentOrders = []
+let orderCount = 0
+
+if (customerId) {
+  const db = new Database(dbPath, { readonly: true })
+  customer = db.query(`SELECT id, name, email, phone, total_spent, last_order FROM customers WHERE id = ?1`).get(customerId)
+
+  if (customer) {
+    // Show the three most recent orders inline. The full list lives
+    // at /orders so the dashboard stays scannable.
+    recentOrders = db.query(`
+      SELECT id, uuid, status, total_amount, order_type, created_at
+      FROM orders
+      WHERE customer_id = ?1
+      ORDER BY id DESC
+      LIMIT 3
+    `).all(customer.id)
+
+    const countRow = db.query(`SELECT COUNT(*) AS c FROM orders WHERE customer_id = ?1`).get(customer.id)
+    orderCount = Number(countRow?.c || 0)
+  }
+  db.close()
+}
+</script>
+
+@section('content')
+  @if (!customer)
+    <meta http-equiv="refresh" content="0; url=/login">
+    <div class="mx-auto px-6 py-24 max-w-md text-center">
+      <p class="text-stone-600">Redirecting to <a href="/login" class="font-semibold underline">sign in</a>…</p>
+    </div>
+  @else
+    <div class="mx-auto px-6 py-12 max-w-4xl">
+      <div class="flex flex-wrap gap-4 items-end justify-between">
+        <div>
+          <p class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Account</p>
+          <h1 class="mt-1 font-bold text-4xl text-stone-900 tracking-tight">Hi, {{ customer.name }}.</h1>
+          <p class="mt-2 text-stone-600">{{ customer.email }}</p>
+        </div>
+        <div class="flex gap-4 items-center">
+          <a href="/profile" class="font-semibold text-sm text-stone-600 underline underline-offset-4 hover:text-stone-900">Edit profile</a>
+          <form action="/api/auth/logout" method="POST">
+            <button type="submit" class="font-semibold text-sm text-stone-600 underline underline-offset-4 hover:text-stone-900">Sign out</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-3 mt-10">
+        <div class="p-6 border border-stone-200 rounded-3xl">
+          <p class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Orders</p>
+          <p class="mt-3 font-bold tabular-nums text-3xl text-stone-900">{{ orderCount }}</p>
+          <a href="/orders" class="inline-flex gap-1 items-center mt-4 font-semibold text-sm text-stone-700 hover:text-stone-900">
+            View order history
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+          </a>
+        </div>
+        <div class="p-6 border border-stone-200 rounded-3xl">
+          <p class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Total spent</p>
+          <p class="mt-3 font-bold tabular-nums text-3xl text-stone-900">${{ Number(customer.total_spent || 0).toFixed(2) }}</p>
+          <p class="mt-4 text-stone-500 text-xs">Across all orders.</p>
+        </div>
+        <div class="p-6 border border-stone-200 rounded-3xl">
+          <p class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Last order</p>
+          <p class="mt-3 font-semibold text-lg text-stone-900">{{ customer.last_order || '—' }}</p>
+          <a href="/products" class="inline-flex gap-1 items-center mt-4 font-semibold text-sm text-stone-700 hover:text-stone-900">
+            Reorder favorites
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+          </a>
+        </div>
+      </div>
+
+      <div class="mt-12">
+        <div class="flex items-baseline justify-between">
+          <h2 class="font-bold text-2xl text-stone-900 tracking-tight">Recent orders</h2>
+          @if (orderCount > 3)
+            <a href="/orders" class="font-semibold text-sm text-stone-700 underline underline-offset-4 hover:text-stone-900">See all {{ orderCount }}</a>
+          @endif
+        </div>
+
+        @if (recentOrders.length === 0)
+          <div class="mt-6 p-12 text-center border border-dashed border-stone-300 rounded-3xl">
+            <p class="text-stone-500">You haven't placed an order yet.</p>
+            <a href="/products" class="inline-flex mt-6 px-6 py-3 font-semibold text-sm text-stone-50 bg-stone-900 hover:bg-stone-800 rounded-full transition-colors">Browse the shop</a>
+          </div>
+        @else
+          <ul class="mt-6 border border-stone-200 divide-stone-200 divide-y rounded-3xl">
+            @foreach (recentOrders as order)
+              <li class="flex flex-wrap gap-4 items-center justify-between px-6 py-5">
+                <div>
+                  <p class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Order #{{ order.id }}</p>
+                  <p class="mt-1 text-sm text-stone-700">{{ String(order.created_at || '').slice(0, 10) }} · <span class="capitalize">{{ String(order.status || '').toLowerCase() }}</span></p>
+                </div>
+                <div class="flex gap-6 items-center">
+                  <p class="font-semibold tabular-nums text-stone-900">${{ Number(order.total_amount || 0).toFixed(2) }}</p>
+                  <a href="/orders/{{ order.uuid }}" class="font-semibold text-sm text-stone-700 underline underline-offset-4 hover:text-stone-900">View</a>
+                </div>
+              </li>
+            @endforeach
+          </ul>
+        @endif
+      </div>
+    </div>
+  @endif
+@endsection

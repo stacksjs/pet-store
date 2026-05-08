@@ -165,7 +165,10 @@ function crc32(buf: Uint8Array): number {
     CRC_TABLE = t
   }
   let c = 0xFFFFFFFF
-  for (let i = 0; i < buf.length; i++) c = (CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8)) >>> 0
+  // `noUncheckedIndexedAccess` widens both lookups to `T | undefined`,
+  // but the loop bounds + the table fill above guarantee neither is
+  // undefined. `!` keeps the math readable.
+  for (let i = 0; i < buf.length; i++) c = (CRC_TABLE[(c ^ buf[i]!) & 0xFF]! ^ (c >>> 8)) >>> 0
   return (c ^ 0xFFFFFFFF) >>> 0
 }
 
@@ -182,15 +185,12 @@ async function main(): Promise<void> {
   // writing into it; do it ourselves so the script Just Works regardless
   // of which tagged release is installed.
   await mkdir(OUTPUT, { recursive: true })
-  const results = await generateFavicons(source, OUTPUT, {
-    manifest: {
-      name: 'PetStore',
-      shortName: 'PetStore',
-      themeColor: '#1c1917',
-      backgroundColor: '#fafaf9',
-      pathPrefix: '/favicons/',
-    },
-  })
+  // The published `generateFavicons` is `(input, outputDir) => …` —
+  // the manifest-from-options path was a future API that didn't ship
+  // yet. The site.webmanifest fallback below writes the same content
+  // a third-arg-aware version would have produced, so this stays
+  // forwards-compatible.
+  const results = await generateFavicons(source, OUTPUT)
 
   // Older ts-images doesn't emit apple-touch-icon or site.webmanifest;
   // create them locally so the layout's <link> tags don't 404. Once

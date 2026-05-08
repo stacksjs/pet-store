@@ -1,0 +1,55 @@
+@extends('layouts/storefront')
+
+@section('title', 'Terms — PetStore')
+@section('description', 'The terms that govern your purchase from PetStore.')
+
+@section('content')
+  <article class="mx-auto px-6 py-16 max-w-3xl prose prose-stone">
+    <p class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Last updated: 8 May 2026</p>
+    <h1 class="mt-3 font-bold text-4xl text-stone-900 tracking-tight">Terms of Service</h1>
+
+    <p class="mt-6 leading-relaxed text-stone-700">
+      By placing an order with PetStore you agree to the terms below. Plain English, short version: we'll ship you what you bought, you'll pay for it, and if something goes wrong we'll make it right.
+    </p>
+
+    <h2 class="mt-12 font-bold text-2xl text-stone-900">Orders &amp; pricing</h2>
+    <p class="mt-4 text-stone-700">
+      Prices are in USD and shown on each product page. We may change prices at any time, but a confirmed order locks in the price you paid. Tax (if applicable) is calculated at checkout. Shipping is free over $40 in the contiguous US; otherwise a flat rate applies.
+    </p>
+
+    <h2 class="mt-12 font-bold text-2xl text-stone-900">Shipping</h2>
+    <p class="mt-4 text-stone-700">
+      Orders ship within 1–2 business days from our facility. Tracking is emailed when the package leaves the warehouse. Risk of loss passes to you on delivery; if a package is lost or damaged in transit, contact us and we'll work with the carrier.
+    </p>
+
+    <h2 class="mt-12 font-bold text-2xl text-stone-900">Returns &amp; refunds</h2>
+    <p class="mt-4 text-stone-700">
+      Because everything we ship is consumable food, we don't accept returns once a bag is opened. If your order arrives damaged, defective, or incorrect, email <a href="mailto:hello@petstore.example" class="font-semibold underline">hello@petstore.example</a> within 14 days and we'll replace it or refund you, your call. See <a href="/shipping" class="font-semibold underline">/shipping</a> for the full policy.
+    </p>
+
+    <h2 class="mt-12 font-bold text-2xl text-stone-900">Product safety</h2>
+    <p class="mt-4 text-stone-700">
+      We sell single-ingredient dehydrated treats, not a complete diet. They're a complement to your dog's regular food. If your dog has a known allergy or medical condition, talk to your vet before introducing a new treat.
+    </p>
+
+    <h2 class="mt-12 font-bold text-2xl text-stone-900">Account use</h2>
+    <p class="mt-4 text-stone-700">
+      You're responsible for the email address linked to your account. Don't share access. We'll never ask for your payment details over email or SMS.
+    </p>
+
+    <h2 class="mt-12 font-bold text-2xl text-stone-900">Limitation of liability</h2>
+    <p class="mt-4 text-stone-700">
+      Our liability for any claim related to a product you bought is limited to the amount you paid for that product. We're not liable for indirect, incidental, or consequential damages — laws in your jurisdiction may give you additional rights that this clause doesn't override.
+    </p>
+
+    <h2 class="mt-12 font-bold text-2xl text-stone-900">Changes</h2>
+    <p class="mt-4 text-stone-700">
+      We may update these terms; if we do, the "Last updated" date at the top of this page changes. Material changes affecting existing orders won't apply retroactively to those orders.
+    </p>
+
+    <h2 class="mt-12 font-bold text-2xl text-stone-900">Contact</h2>
+    <p class="mt-4 text-stone-700">
+      Questions: <a href="mailto:hello@petstore.example" class="font-semibold underline">hello@petstore.example</a>.
+    </p>
+  </article>
+@endsection

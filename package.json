@@ -19,6 +19,7 @@
     "url": "https://github.com/stacksjs/stacks/issues"
   },
   "scripts": {
+    "postinstall": "bun scripts/patch-broken-dts.ts",
     "build:reset": "rm -rf node_modules pantry.lock && pantry install && ./buddy generate:model-files && ./buddy lint:fix && cd storage/framework && bun run build && cd ../../",
     "buddy": "bun ./storage/framework/core/buddy/src/cli.ts",
     "stacks": "./buddy",
@@ -80,10 +81,10 @@
   ],
   "git-hooks": {
     "pre-commit": {
-      "staged-lint": {
+      "stagedLint": {
         "*.{js,ts,json,yaml,yml,md}": "bunx --bun pickier lint --fix"
       }
     },
-    "commit-msg": "bunx gitlint --edit .git/COMMIT_EDITMSG"
+    "commit-msg": "bunx --bun @stacksjs/gitlint --edit .git/COMMIT_EDITMSG"
   }
 }
