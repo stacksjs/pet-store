@@ -156,6 +156,18 @@ const productSchema = product ? JSON.stringify({
          non-JS script types (application/ld+json) unchanged. --}}
     @if (productSchema)
       <script type="application/ld+json">{!! productSchema !!}</script>
+      {{-- BreadcrumbList: Home → Products → <product>. Google uses
+          this to render the trail under the title in search results
+          instead of the raw URL. --}}
+      <script type="application/ld+json">{!! JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        'itemListElement': [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: '/' },
+          { '@type': 'ListItem', position: 2, name: 'Shop', item: '/products' },
+          { '@type': 'ListItem', position: 3, name: product.name, item: `/products/${product.slug}` },
+        ],
+      }) !!}</script>
     @endif
 
     @if (!found)

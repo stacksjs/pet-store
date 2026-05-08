@@ -57,9 +57,40 @@ const principles = [
     body: 'Every bag has a batch code. Scan it, and you see the farm, the processing date, and the third-party lab report.',
   },
 ]
+
+// Org + WebSite JSON-LD for the homepage. Search engines read this to
+// render the brand name + logo as a knowledge panel and to wire
+// sitelinks search if Google decides to offer it. Sticking to one
+// `@graph` keeps the two nodes referenceable from each other (the
+// website's `publisher` points at the org's `@id`). Kept on the
+// homepage only — that's where Google reads org-level signals from.
+const orgSchema = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': 'https://petstore.example/#org',
+      'name': 'PetStore',
+      'url': 'https://petstore.example/',
+      'logo': 'https://petstore.example/favicons/favicon-512x512.png',
+      'sameAs': [],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://petstore.example/#site',
+      'url': 'https://petstore.example/',
+      'name': 'PetStore',
+      'publisher': { '@id': 'https://petstore.example/#org' },
+    },
+  ],
+})
 </script>
 
 @section('content')
+  {{-- Org + Website JSON-LD. Mirrors the inline placement of the
+      Product schema on /products/[slug]. STX's script rewriter passes
+      `application/ld+json` through untouched. --}}
+  <script type="application/ld+json">{!! orgSchema !!}</script>
   <!-- Hero -->
   <section class="overflow-hidden relative">
     <div class="grid gap-12 items-center md:grid-cols-2 mx-auto pb-24 pt-20 px-6 max-w-6xl">
