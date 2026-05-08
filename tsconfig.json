@@ -8,6 +8,13 @@
   // CI runs the bare `tsc --noEmit` command, so the root tsconfig is
   // what gets picked up — keep these in sync with
   // `storage/framework/core/tsconfig.json` if that file changes.
+  //
+  // Caveat: TypeScript still walks anything reachable via the
+  // framework tsconfig's `paths` mapping (`@stacksjs/*` → framework
+  // src tree), regardless of `exclude`. As a result, `tsc --noEmit`
+  // here will surface pre-existing type debt under
+  // `storage/framework/core/**`. Those failures belong upstream
+  // in `stacksjs/stacks` and are not pet-store's to fix on this PR.
   "include": [
     "*.ts",
     "**/*.ts",
