@@ -6,11 +6,6 @@ interface ProductCardProps {
    *  — STX defineProps values aren't in scope for SSR template evaluation. */
   priceLabel: string
   image: string
-  /** Pre-built srcset (e.g.
-   *  "/images/products/x-400.jpg 400w, /images/products/x-600.jpg 600w, …").
-   *  Pass empty string when there are no responsive variants and the
-   *  card should just render `src=image`. */
-  imageSrcset?: string
   ingredient?: string
   weight?: string
   badge?: string
@@ -22,7 +17,6 @@ const {
   name,
   priceLabel,
   image,
-  imageSrcset = '',
   ingredient = '',
   weight = '',
   badge = '',
@@ -36,16 +30,9 @@ const {
         doesn't block first paint, and explicit width/height (matched to a
         square aspect-ratio container above) keep CLS at 0 while images
         resolve. The card is below the fold on every page that uses it
-        (home featured, /products grid) so lazy is always safe.
-
-        srcset + sizes hand the browser the right resolution: catalog grids
-        render the tile around 280-380 CSS px on desktop and full-width on
-        mobile, so picking 400w/600w over the 900w hero variant cuts the
-        per-tile payload roughly 4× without visible loss. --}}
+        (home featured, /products grid) so lazy is always safe. --}}
     <img
       src="{{ image }}"
-      srcset="{{ imageSrcset }}"
-      sizes="(min-width: 1024px) 280px, (min-width: 768px) 33vw, 50vw"
       alt="{{ name }}"
       width="600"
       height="600"

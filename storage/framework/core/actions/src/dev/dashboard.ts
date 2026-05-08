@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { bold, cyan, dim, green } from '@stacksjs/cli'
 import { projectPath, storagePath } from '@stacksjs/path'
 import { buildDashboardUrl, buildManifest, buildSidebarConfig, discoverModels, findAvailablePort, waitForServer } from './dashboard-utils'
@@ -108,7 +108,39 @@ async function startStxServer(): Promise<void> {
   const { listConfigFiles, readConfig, updateConfigKey } = await import(
     storagePath('framework/defaults/resources/functions/dashboard/config-io.ts')
   )
+  // Map a runtime bare specifier (used by client-side `await import('@stacksjs/...')`
+  // in dashboard pages) to the on-disk dist file we serve. The matching import
+  // map is injected by the dashboard layout — see
+  // `storage/framework/defaults/views/dashboard/layouts/default.stx`
+  // (`<script type="importmap">` near the top). The dashboard's own
+  // `stx.config.ts` would be the natural home for this, but `bun-plugin-stx`'s
+  // `serve()` autoloads config from `process.cwd()` (the project root), not
+  // the layouts dir, so the layout-level injection is what actually reaches
+  // the browser.
+  const depRoutes: Record<string, string> = {
+    '/__deps/charts.js': storagePath('framework/core/charts/dist/index.js'),
+  }
   const configRoutes: Record<string, (req: Request) => Response | Promise<Response>> = {
+    ...Object.fromEntries(
+      Object.entries(depRoutes).map(([url, file]) => [
+        url,
+        async () => {
+          const f = Bun.file(file)
+          if (!(await f.exists())) {
+            return new Response(
+              `// dependency dist missing: ${file}\n// rebuild with: cd ${file.replace(/\/dist\/[^/]+$/, '')} && bun build.ts`,
+              { status: 500, headers: { 'content-type': 'text/javascript; charset=utf-8' } },
+            )
+          }
+          return new Response(f, {
+            headers: {
+              'content-type': 'text/javascript; charset=utf-8',
+              'cache-control': 'no-cache',
+            },
+          })
+        },
+      ]),
+    ),
     '/api/config/list': async () => {
       try {
         return Response.json({ ok: true, files: listConfigFiles() })
@@ -220,6 +252,26 @@ async function startStxServer(): Promise<void> {
   // local dashboard. The dashboard runs entirely on the developer's
   // machine and is not meant to be authenticated; without this flag
   // every page silently 302'd to /login.
+  // Load Stacks router routes (user + framework via bootstrap.ts) so that
+  // routes registered with `route.get(...)` / `route.register(...)` are
+  // reachable from the dashboard server. Without this the dashboard runs
+  // entirely on bun-plugin-stx's flat routes map and any /api/dashboard/*
+  // endpoint declared via the framework router would 404 in dev — even
+  // though it works fine in production (server/start.ts also calls
+  // loadRoutes). We scope onRequest delegation tightly below.
+  let stacksRoute: typeof import('@stacksjs/router').route | null = null
+  try {
+    const router = await import('@stacksjs/router')
+    const routeRegistry = (await import(projectPath('app/Routes.ts'))).default
+    await router.loadRoutes(routeRegistry)
+    stacksRoute = router.route
+  }
+  catch (err) {
+    // Don't crash the dashboard if route loading fails — dev devs still
+    // need page rendering even if /api/* endpoints aren't reachable.
+    if (verbose) console.warn('[dashboard] Stacks router init failed:', (err as Error)?.message || err)
+  }
+
   const serverPromise = serve({
     patterns: [userDashboardPath, dashboardPath],
     port: dashboardPort,
@@ -228,6 +280,19 @@ async function startStxServer(): Promise<void> {
     partialsDir: dashboardPath,
     quiet: true,
     routes: configRoutes,
+    // onRequest fires BEFORE the `routes` map and BEFORE STX page
+    // resolution. Returning a Response short-circuits the rest of the
+    // pipeline; returning null/undefined falls through. We narrowly
+    // delegate only `/api/dashboard/*` to the Stacks router so we don't
+    // accidentally swallow `/api/config/*` or `/__deps/*` (handled by
+    // `configRoutes`) or page paths (handled by STX).
+    onRequest: stacksRoute
+      ? async (req: Request) => {
+          const url = new URL(req.url)
+          if (!url.pathname.startsWith('/api/dashboard/')) return null
+          return stacksRoute!.handleRequest(req)
+        }
+      : undefined,
     auth: false,
     ...(stxModule && { stxModule }),
   } as any)
@@ -489,63 +554,132 @@ if (verbose) {
 console.log()
 /* eslint-enable no-console */
 
-// Import @craft-native/ts dynamically — its static import triggers bun-router
-// config loading which prints warnings before our console.log override is active.
-const { createApp } = await import('@craft-native/ts')
-
-// Resolve the dock icon. Userland gets first crack at customizing via
-// `resources/assets/images/app-icon.png` in the project; if absent, fall
-// back to the framework's bundled placeholder so the dock never shows the
-// generic "no icon" silhouette. PNG is fine — NSImage decodes it directly.
-const userIconPath = projectPath('resources/assets/images/app-icon.png')
-const defaultIconPath = storagePath('framework/defaults/resources/assets/images/app-icon.png')
-// eslint-disable-next-line ts/no-top-level-await
-const appIconPath = (await Bun.file(userIconPath).exists())
-  ? userIconPath
-  : (await Bun.file(defaultIconPath).exists()) ? defaultIconPath : undefined
-
-// Native sidebar mode: Craft renders a real NSOutlineView populated
-// from `sidebarConfig`. The web sidebar self-hides via the layout's
-// `?native-sidebar=1` URL signal, so users only ever see one nav.
+// Import @stacksjs/ts-craft dynamically. Its static import triggers bun-router
+// config loading which prints warnings before our console.log override is
+// active. We also let it be missing — the native window is a nicety, not a
+// requirement; the dashboard runs fine as a plain web server in that case.
 //
-// If `sidebarConfig` round-tripping ever breaks again (Craft fell back
-// to its Finder placeholder before because the config didn't survive
-// argv/file passing), set `nativeSidebar: false` and the web sidebar
-// stays visible — see the layout for the matching detection logic.
-const app = createApp({
-  url: initialUrl,
-  quiet: !verbose,
-  window: {
-    title: 'Stacks Dashboard',
-    width: 1400,
-    height: 900,
-    titlebarHidden: true,
-    nativeSidebar: true,
-    sidebarWidth: 240,
-    sidebarConfig,
-    ...(appIconPath && { icon: appIconPath }),
-  },
-})
-
-// Clean up on exit
-process.on('SIGINT', () => {
-  app.close()
-  process.exit(0)
-})
-process.on('SIGTERM', () => {
-  app.close()
-  process.exit(0)
-})
-
+// (Was previously imported as `@craft-native/ts` which is a stale package
+// name — the actual published package is `@stacksjs/ts-craft`, which exports
+// `createApp` with the same shape.)
+let createApp: ((_opts: any) => { show: () => Promise<void>, close: () => void }) | null = null
 try {
-  await app.show()
-  process.exit(0)
+  ;({ createApp } = await import('@stacksjs/ts-craft'))
 }
-catch (err: any) {
-  const fallbackUrl = dashboardHttpsUrl || dashboardLocalUrl
-  // eslint-disable-next-line no-console
-  console.log(`  ${dim('Dashboard available at:')} ${cyan(fallbackUrl)}\n`)
+catch {
+  // @stacksjs/ts-craft isn't installed (or its native bindings failed to
+  // load on this platform). Fall through to web-only mode below.
+}
 
-  // Keep the process running since we're serving via STX
+if (createApp) {
+  // Resolve the dock icon. Userland gets first crack at customizing via
+  // `resources/assets/images/app-icon.png` in the project; if absent, fall
+  // back to the framework's bundled placeholder so the dock never shows the
+  // generic "no icon" silhouette. PNG is fine — NSImage decodes it directly.
+  const userIconPath = projectPath('resources/assets/images/app-icon.png')
+  const defaultIconPath = storagePath('framework/defaults/resources/assets/images/app-icon.png')
+  // eslint-disable-next-line ts/no-top-level-await
+  const appIconPath = (await Bun.file(userIconPath).exists())
+    ? userIconPath
+    : (await Bun.file(defaultIconPath).exists()) ? defaultIconPath : undefined
+
+  // Native sidebar mode: Craft renders a real NSOutlineView populated
+  // from `sidebarConfig`. The web sidebar self-hides via the layout's
+  // `?native-sidebar=1` URL signal, so users only ever see one nav.
+  //
+  // If `sidebarConfig` round-tripping ever breaks again (Craft fell back
+  // to its Finder placeholder before because the config didn't survive
+  // argv/file passing), set `nativeSidebar: false` and the web sidebar
+  // stays visible — see the layout for the matching detection logic.
+  // ts-craft@0.0.2's `findCraftBinary()` only looks at a few cwd-relative
+  // paths (packages/zig/zig-out/bin/craft etc.) and then falls back to
+  // `'craft'` from PATH. The fallback resolves to the ts-craft CLI shim,
+  // not the actual native binary, so spawn never produces a window.
+  //
+  // Honour `CRAFT_BIN` (matching the newer @craft-native/craft contract)
+  // and probe a couple of known monorepo locations relative to this
+  // checkout so the local `~/Documents/Projects/craft` clone Just Works
+  // without requiring an env var.
+  const craftBinaryPath = (() => {
+    const explicit = process.env.CRAFT_BIN
+    if (explicit) {
+      // Explicit override — use it if it exists, otherwise skip native mode.
+      // Silently falling through to the home-relative probe would be
+      // surprising: the user named a path, so honour that decision.
+      // A non-existent CRAFT_BIN is also our test/headless escape hatch.
+      return existsSync(explicit) ? explicit : undefined
+    }
+    const homeRel = `${process.env.HOME}/Documents/Projects/craft/packages/zig/zig-out/bin/craft`
+    if (existsSync(homeRel))
+      return homeRel
+    return undefined
+  })()
+
+  // If we couldn't locate a real native binary, don't even attempt to spawn
+  // — ts-craft's `findCraftBinary()` PATH fallback resolves to its own CLI
+  // shim (the `craft` symlink that bun installs into ~/.bun/bin points back
+  // at @stacksjs/ts-craft's bin/cli.ts). That shim then re-receives our
+  // native-style flags (`--url ...`), clapp rejects them as unknown, and the
+  // user sees a noisy "ClappError: Unknown option --url" before the process
+  // exits. Skip native-window mode entirely instead and let the web fallback
+  // below handle it.
+  if (!craftBinaryPath) {
+    createApp = null
+  }
+
+  const app = createApp({
+    url: initialUrl,
+    quiet: !verbose,
+    ...(craftBinaryPath && { craftPath: craftBinaryPath }),
+    window: {
+      title: 'Stacks Dashboard',
+      width: 1400,
+      height: 900,
+      titlebarHidden: true,
+      nativeSidebar: true,
+      sidebarWidth: 240,
+      sidebarConfig,
+      ...(appIconPath && { icon: appIconPath }),
+    },
+  })
+
+  // Clean up on exit
+  process.on('SIGINT', () => {
+    app.close()
+    process.exit(0)
+  })
+  process.on('SIGTERM', () => {
+    app.close()
+    process.exit(0)
+  })
+
+  try {
+    await app.show()
+    process.exit(0)
+  }
+  catch {
+    const fallbackUrl = dashboardHttpsUrl || dashboardLocalUrl
+    // eslint-disable-next-line no-console
+    console.log(`  ${dim('Dashboard available at:')} ${cyan(fallbackUrl)}\n`)
+
+    // Keep the process running since we're serving via STX
+    await new Promise(() => {})
+  }
+}
+else {
+  // No native window — keep the HTTP server alive so the dashboard is
+  // reachable via the URLs printed in the banner above. SIGINT/SIGTERM
+  // exit cleanly without a window to close.
+  //
+  // We get here in two cases:
+  //   1. `@stacksjs/ts-craft` failed to import (catch above set createApp = null)
+  //   2. We couldn't find a real native craft binary (CRAFT_BIN unset and the
+  //      `~/Documents/Projects/craft` checkout isn't present). In that case
+  //      we deliberately skipped native mode to avoid spawning the ts-craft
+  //      CLI shim with native-style flags (which would error on `--url`).
+  // eslint-disable-next-line no-console
+  console.log(`  ${dim('Native window unavailable. Set CRAFT_BIN to a craft binary, or open the URL above in a browser.')}\n`)
+  process.on('SIGINT', () => process.exit(0))
+  process.on('SIGTERM', () => process.exit(0))
   await new Promise(() => {})
 }

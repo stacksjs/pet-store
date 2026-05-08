@@ -1,4 +1,13 @@
 import type { ChartConfig, ChartData, ChartDataset, ChartOptions, ChartType, TooltipCallbackContext } from './types'
+import { scaleBand, scaleLinear } from '@ts-charts/scale'
+import {
+  arc as d3Arc,
+  area as d3Area,
+  curveLinear,
+  curveMonotoneX,
+  line as d3Line,
+  pie as d3Pie,
+} from '@ts-charts/shape'
 import { paletteColor, withAlpha } from './colors'
 import { formatTick, niceTicks } from './ticks'
 
@@ -173,7 +182,7 @@ export class Chart {
       this.ctx.font = `${t.font?.size ?? 14}px system-ui, sans-serif`
       this.ctx.textAlign = 'center'
       this.ctx.textBaseline = 'top'
-      this.ctx.fillText(t.text, width / 2, 8)
+      this.ctx.fillText(t.text ?? '', width / 2, 8)
     }
 
     this.drawLegend(legend, datasets)
@@ -243,7 +252,10 @@ export class Chart {
     }
 
     const ticks = niceTicks(min, max, cfg.ticks?.maxTicksLimit ?? 6)
-    return { ticks, min: ticks[0], max: ticks[ticks.length - 1] }
+    // niceTicks always returns at least one element, but the type
+    // system can't see that — fall back to the resolved domain so
+    // downstream consumers always get concrete numbers.
+    return { ticks, min: ticks[0] ?? min, max: ticks[ticks.length - 1] ?? max }
   }
 
   private drawGridAndYAxis(plot: Box, axis: AxisLayout, side: 'left' | 'right'): void {
@@ -313,22 +325,34 @@ export class Chart {
 
     for (let i = 0; i < labels.length; i += step) {
       const x = this.scaleX(plot, labels.length, i)
-      this.ctx.fillText(labels[i], x, plot.y + plot.h + 8)
+      this.ctx.fillText(labels[i] ?? '', x, plot.y + plot.h + 8)
     }
     this.ctx.restore()
   }
 
+  /**
+   * X-axis pixel mapping. We delegate the math to `@ts-charts/scale`'s
+   * `scaleLinear` so categorical points distribute evenly across the plot
+   * the same way d3-scale would, including the degenerate single-point
+   * case (collapses to plot center).
+   */
   private scaleX(plot: Box, count: number, i: number): number {
     if (count <= 1)
       return plot.x + plot.w / 2
-    return plot.x + (plot.w * i) / (count - 1)
+    const s = scaleLinear().domain([0, count - 1]).range([plot.x, plot.x + plot.w])
+    return s(i)
   }
 
+  /**
+   * Y-axis pixel mapping built on `@ts-charts/scale`'s `scaleLinear`.
+   * Inverts the canvas Y axis by giving the larger pixel value to the
+   * smaller domain value, so the visual direction matches an SVG plot.
+   */
   private scaleY(plot: Box, axis: AxisLayout, value: number): number {
-    const range = axis.max - axis.min
-    if (range === 0)
+    if (axis.max === axis.min)
       return plot.y + plot.h / 2
-    return plot.y + plot.h - ((value - axis.min) / range) * plot.h
+    const s = scaleLinear().domain([axis.min, axis.max]).range([plot.y + plot.h, plot.y])
+    return s(value)
   }
 
   private drawLines(plot: Box, labels: string[], datasets: ChartDataset[], yAxis: AxisLayout, yAxis1: AxisLayout | null): void {
@@ -350,28 +374,46 @@ export class Chart {
         value: v,
       }))
 
-      if (fillColor && points.length > 0) {
+      if (points.length === 0)
+        return
+
+      // Chart.js's `tension` field controls smoothing. We map any
+      // non-zero tension to d3-shape's `curveMonotoneX`, which is
+      // visually closer to the Chart.js look than `curveCardinal`
+      // and never overshoots, so axis grids stay tight.
+      const curve = (ds.tension ?? 0) > 0 ? curveMonotoneX : curveLinear
+
+      // Filled area under the line (Chart.js semantic: `fill: true`
+      // floods between the line and the x-axis baseline).
+      if (fillColor) {
+        const baseline = plot.y + plot.h
+        const areaGen = (d3Area() as any)
+          .x((p: { x: number }) => p.x)
+          .y0(() => baseline)
+          .y1((p: { y: number }) => p.y)
+          .curve(curve)
+          .context(this.ctx)
         this.ctx.beginPath()
-        this.ctx.moveTo(points[0].x, plot.y + plot.h)
-        for (const p of points)
-          this.ctx.lineTo(p.x, p.y)
-        this.ctx.lineTo(points[points.length - 1].x, plot.y + plot.h)
-        this.ctx.closePath()
+        areaGen(points)
         this.ctx.fillStyle = fillColor
         this.ctx.fill()
+        areaGen.context(null)
       }
 
+      // Line stroke through the same point set.
+      const lineGen = (d3Line() as any)
+        .x((p: { x: number }) => p.x)
+        .y((p: { y: number }) => p.y)
+        .curve(curve)
+        .context(this.ctx)
       this.ctx.beginPath()
+      lineGen(points)
       this.ctx.lineWidth = ds.borderWidth ?? 2
       this.ctx.strokeStyle = color
       this.ctx.lineJoin = 'round'
       this.ctx.lineCap = 'round'
-      points.forEach((p, i) => {
-        if (i === 0)
-          this.ctx.moveTo(p.x, p.y)
-        else this.ctx.lineTo(p.x, p.y)
-      })
       this.ctx.stroke()
+      lineGen.context(null)
 
       const r = ds.pointRadius ?? 0
       if (r > 0) {
@@ -407,11 +449,18 @@ export class Chart {
 
     const cfg = this.options.scales?.y
     const stacked = !!cfg?.stacked
-    const groupWidth = (plot.w / count) * 0.7
+
+    // Use `@ts-charts/scale`'s `scaleBand` to compute the per-category
+    // band so the bar group width and gutter respect the same 0.3
+    // padding ratio d3-scale uses by default. Each band is then split
+    // among datasets in unstacked mode.
+    const indices = Array.from({ length: count }, (_, i) => i)
+    const xBand = scaleBand().domain(indices).range([plot.x, plot.x + plot.w]).paddingInner(0.3)
+    const groupWidth = xBand.bandwidth() as number
     const barWidth = stacked ? groupWidth : groupWidth / Math.max(1, datasets.length)
 
     for (let i = 0; i < count; i++) {
-      const cx = this.scaleX(plot, count > 1 ? count : 2, i) - groupWidth / 2
+      const cx = xBand(i) as number
       let posStack = 0
       let negStack = 0
 
@@ -465,8 +514,9 @@ export class Chart {
       return
 
     const ds = datasets[0]
+    if (!ds)
+      return
     const labels = this.data.labels ?? []
-    const total = ds.data.reduce((a, b) => a + (b || 0), 0) || 1
 
     const legend = this.layoutLegend(width, height)
     let plotW = width
@@ -502,25 +552,37 @@ export class Chart {
       : (this.type === 'doughnut' ? 0.6 : 0)
     const inner = radius * cutoutPct
 
-    let start = -Math.PI / 2
-    ds.data.forEach((value, i) => {
-      const slice = (value / total) * Math.PI * 2
-      const end = start + slice
+    // Layout each slice via d3-shape's `pie()` generator (from
+    // `@ts-charts/shape`). The generator handles ordering, value
+    // normalisation, and the start/end angle math we used to inline.
+    // We then render with `arc()` against the canvas context so the
+    // existing canvas-only API stays unchanged from the caller's POV.
+    const pieLayout = (d3Pie() as any)
+      .value((d: number) => Math.max(0, d || 0))
+      .startAngle(-Math.PI / 2)
+      .endAngle(-Math.PI / 2 + Math.PI * 2)
+      .sort(null)
+    const slices = pieLayout(ds.data) as Array<{ startAngle: number, endAngle: number, value: number, index: number }>
+
+    const slicePath = (d3Arc() as any)
+      .innerRadius(inner)
+      .outerRadius(radius)
+
+    this.ctx.save()
+    this.ctx.translate(cx, cy)
+    for (const s of slices) {
+      const i = s.index
+      const value = ds.data[i] ?? 0
       const color = Array.isArray(ds.backgroundColor)
         ? ds.backgroundColor[i] ?? paletteColor(i)
         : (typeof ds.backgroundColor === 'string' ? ds.backgroundColor : paletteColor(i))
 
       this.ctx.beginPath()
-      this.ctx.moveTo(cx + Math.cos(start) * inner, cy + Math.sin(start) * inner)
-      this.ctx.arc(cx, cy, radius, start, end)
-      if (inner > 0)
-        this.ctx.arc(cx, cy, inner, end, start, true)
-      else this.ctx.lineTo(cx, cy)
-      this.ctx.closePath()
+      slicePath.context(this.ctx)(s)
       this.ctx.fillStyle = color
       this.ctx.fill()
 
-      const mid = (start + end) / 2
+      const mid = (s.startAngle + s.endAngle) / 2 - Math.PI / 2
       const hitR = (radius + inner) / 2
       this.hitItems.push({
         datasetIndex: 0,
@@ -530,9 +592,11 @@ export class Chart {
         label: labels[i] ?? String(i),
         value,
       })
-
-      start = end
-    })
+    }
+    this.ctx.restore()
+    // Reset the path's bound context so the generator instance doesn't
+    // hold a reference to a destroyed canvas across re-renders.
+    slicePath.context(null)
   }
 
   // ---------- legend ---------- //
@@ -679,6 +743,7 @@ export class Chart {
     const lines: string[] = []
     items.forEach((it) => {
       const ds = this.data.datasets[it.datasetIndex]
+      if (!ds) return
       const ctx: TooltipCallbackContext = {
         dataset: ds,
         datasetIndex: it.datasetIndex,
@@ -694,15 +759,19 @@ export class Chart {
     })
 
     const titleOut = cb?.title
-      ? cb.title(items.map(it => ({
-          dataset: this.data.datasets[it.datasetIndex],
-          datasetIndex: it.datasetIndex,
-          dataIndex: it.dataIndex,
-          parsed: { y: it.value },
-          raw: it.value,
-          label: it.label,
-          formattedValue: formatTick(it.value),
-        })))
+      ? cb.title(items.flatMap((it) => {
+          const ds = this.data.datasets[it.datasetIndex]
+          if (!ds) return []
+          return [{
+            dataset: ds,
+            datasetIndex: it.datasetIndex,
+            dataIndex: it.dataIndex,
+            parsed: { y: it.value },
+            raw: it.value,
+            label: it.label,
+            formattedValue: formatTick(it.value),
+          }]
+        }))
       : items[0]?.label
     const titleText = Array.isArray(titleOut) ? titleOut.join('\n') : titleOut
 

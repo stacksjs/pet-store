@@ -6,7 +6,7 @@
 //     const notification = chat.slack
 //     const test = await notification.send({
 //       content: 'Test Slack Message!',
-//       webhookUrl: 'https://hooks.slack.com/services/T000/B000/EXAMPLE',
+//       webhookUrl: 'https://hooks.slack.com/services/REDACTED/REDACTED/REDACTED',
 //     })
 //
 //     expect(test).toBeDefined()
@@ -16,7 +16,7 @@
 //     const notification = useChat('slack')
 //     const test = await notification.send({
 //       content: 'Test Slack Message!',
-//       webhookUrl: 'https://hooks.slack.com/services/T000/B000/EXAMPLE',
+//       webhookUrl: 'https://hooks.slack.com/services/REDACTED/REDACTED/REDACTED',
 //     })
 //
 //     expect(test).toBeDefined()

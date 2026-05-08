@@ -15,25 +15,32 @@
       "category": "marketing"
     },
     {
+      "id": "campaign-send",
+      "name": "CampaignSend",
+      "icon": "tablecells.fill",
+      "hasDedicatedPage": false,
+      "category": "data"
+    },
+    {
       "id": "cart",
       "name": "Cart",
       "icon": "cart.fill",
       "hasDedicatedPage": false,
-      "category": "userland"
+      "category": "commerce"
     },
     {
       "id": "cart-item",
       "name": "CartItem",
       "icon": "cart.badge.plus",
       "hasDedicatedPage": false,
-      "category": "userland"
+      "category": "commerce"
     },
     {
       "id": "category",
       "name": "Category",
       "icon": "tag.fill",
       "hasDedicatedPage": true,
-      "category": "userland"
+      "category": "commerce"
     },
     {
       "id": "comment",
@@ -47,14 +54,14 @@
       "name": "Coupon",
       "icon": "ticket.fill",
       "hasDedicatedPage": true,
-      "category": "userland"
+      "category": "commerce"
     },
     {
       "id": "customer",
       "name": "Customer",
       "icon": "person.crop.circle.fill",
       "hasDedicatedPage": true,
-      "category": "userland"
+      "category": "commerce"
     },
     {
       "id": "delivery-route",
@@ -90,6 +97,13 @@
       "icon": "envelope.badge.person.crop",
       "hasDedicatedPage": false,
       "category": "marketing"
+    },
+    {
+      "id": "email-list-subscriber",
+      "name": "EmailListSubscriber",
+      "icon": "tablecells.fill",
+      "hasDedicatedPage": false,
+      "category": "data"
     },
     {
       "id": "gift-card",
@@ -152,14 +166,14 @@
       "name": "Order",
       "icon": "list.clipboard.fill",
       "hasDedicatedPage": true,
-      "category": "userland"
+      "category": "commerce"
     },
     {
       "id": "order-item",
       "name": "OrderItem",
       "icon": "list.bullet.clipboard.fill",
       "hasDedicatedPage": false,
-      "category": "userland"
+      "category": "commerce"
     },
     {
       "id": "page",
@@ -215,7 +229,7 @@
       "name": "Product",
       "icon": "cube.box.fill",
       "hasDedicatedPage": true,
-      "category": "userland"
+      "category": "commerce"
     },
     {
       "id": "product-unit",
@@ -250,7 +264,7 @@
       "name": "Review",
       "icon": "star.fill",
       "hasDedicatedPage": true,
-      "category": "userland"
+      "category": "commerce"
     },
     {
       "id": "shipping-method",
