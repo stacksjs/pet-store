@@ -78,6 +78,7 @@ export default new Action({
  * for an unexpected reason — a missing coupon doesn't fail the
  * signup itself.
  */
+// eslint-disable-next-line pickier/no-unused-vars -- false positive across the multiline signature; `source` is read on line 85
 async function issueWaitlistCoupon(source: string): Promise<{
   code: string
   discountLabel: string

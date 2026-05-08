@@ -1,3 +1,44 @@
 {
-  "extends": "./storage/framework/core/tsconfig.json"
+  "extends": "./storage/framework/core/tsconfig.json",
+  // `include` / `exclude` are NOT inherited from the extended config in
+  // TypeScript — only `compilerOptions` is — so they have to be repeated
+  // here. Without these, `bunx --bun tsc --noEmit` from the project root
+  // walks every .d.ts under `pantry/`, where vendored third-party
+  // packages ship type definitions that aren't always self-consistent.
+  // CI runs the bare `tsc --noEmit` command, so the root tsconfig is
+  // what gets picked up — keep these in sync with
+  // `storage/framework/core/tsconfig.json` if that file changes.
+  "include": [
+    "*.ts",
+    "**/*.ts",
+    "*.stx",
+    "**/*.stx",
+    "*.d.ts",
+    "**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/node_modules",
+    "dist",
+    "dist/**",
+    "pantry",
+    "pantry/**",
+    "**/cdk.out",
+    "**/dist",
+    "**/fixtures",
+    "**/out",
+    "**/tests/**",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "resources/assets/**",
+    "cloud/**",
+    "config/**",
+    "storage/framework/views/**",
+    "storage/framework/auto-imports/**",
+    "storage/framework/requests/**",
+    "storage/framework/server/**",
+    "storage/framework/core/**/build.ts",
+    "**/build.ts",
+    ".stx/**"
+  ]
 }
