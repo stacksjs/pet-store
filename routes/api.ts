@@ -38,3 +38,13 @@ route.post('/api/auth/logout', 'Actions/Storefront/LogoutAction').skipCsrf()
 // Self-serve profile edit. Reads the `stacks_customer` cookie inside
 // the action — no separate middleware — and rate-limits per IP.
 route.post('/api/account/profile', 'Actions/Storefront/UpdateProfileAction').skipCsrf()
+
+// ============================================================================
+// Admin: order fulfillment
+//
+// Admin-only — gated by the framework's `auth` middleware (User-side
+// session, same as the rest of the dashboard). Marks an order as
+// shipped, saves carrier + tracking info, and fires the "your order
+// shipped" email to the customer.
+// ============================================================================
+route.post('/api/orders/{id}/ship', 'Actions/Commerce/MarkOrderShippedAction').middleware('auth')
