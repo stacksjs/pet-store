@@ -1,0 +1,72 @@
+@extends('layouts/storefront')
+
+@section('title', 'Sign in — PetStore')
+@section('description', 'Sign in to your PetStore account to view orders, manage shipping addresses, and reorder favorites.')
+
+<script server>
+const path = require('path')
+const { readCustomerId } = require(path.resolve(process.cwd(), 'resources/lib/customer-cookie.cjs'))
+
+// If the cookie is already valid, skip the form and go straight to
+// the account page. Saves a click for repeat visitors and avoids
+// the "form looks empty so I'll re-enter my email" pattern.
+let alreadySignedIn = false
+try {
+  const rawCookie = (typeof requestContext !== 'undefined') ? requestContext.cookie('stacks_customer') : null
+  alreadySignedIn = !!readCustomerId(rawCookie)
+}
+catch { /* fall through to form */ }
+
+const noticeRaw = (typeof query !== 'undefined' && query?.notice) ? String(query.notice) : ''
+const notFound = noticeRaw === 'not-found'
+</script>
+
+@section('content')
+  @if (alreadySignedIn)
+    <meta http-equiv="refresh" content="0; url=/account">
+    <div class="mx-auto px-6 py-24 max-w-md text-center">
+      <p class="text-stone-600">You're already signed in. <a href="/account" class="font-semibold underline">Go to your account →</a></p>
+    </div>
+  @else
+    <div class="mx-auto px-6 py-20 max-w-md">
+      <div class="text-center">
+        <h1 class="font-bold text-4xl text-stone-900 tracking-tight">Sign in</h1>
+        <p class="mt-3 text-stone-600">Enter the email you used to place an order.</p>
+      </div>
+
+      @if (notFound)
+        <div class="mt-8 px-5 py-4 text-amber-900 text-sm bg-amber-50 border border-amber-200 rounded-2xl">
+          We couldn't find an account with that email yet. Double-check the address you used at checkout, or
+          <a href="/products" class="font-semibold underline underline-offset-2">place your first order</a>.
+        </div>
+      @endif
+
+      <form action="/api/auth/login" method="POST" class="mt-10 space-y-5">
+        <div>
+          <label for="login-email" class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Email</label>
+          <input
+            id="login-email"
+            type="email"
+            name="email"
+            required
+            autocomplete="email"
+            autofocus
+            placeholder="you@example.com"
+            class="mt-1 px-4 py-3 w-full text-sm border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none"
+          >
+        </div>
+
+        <button
+          type="submit"
+          class="inline-flex items-center justify-center px-6 py-3 w-full font-semibold text-sm text-stone-50 bg-stone-900 hover:bg-stone-800 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 focus-visible:ring-stone-900 transition-colors"
+        >
+          Continue
+        </button>
+      </form>
+
+      <p class="mt-8 text-center text-stone-500 text-xs">
+        New here? Your account is created automatically the first time you check out.
+      </p>
+    </div>
+  @endif
+@endsection

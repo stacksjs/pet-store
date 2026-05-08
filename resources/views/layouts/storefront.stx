@@ -12,10 +12,12 @@
 const Database = require('bun:sqlite').Database
 const path = require('path')
 const { readCartToken } = require(path.resolve(process.cwd(), 'resources/lib/cart-cookie.cjs'))
+const { readCustomerId } = require(path.resolve(process.cwd(), 'resources/lib/customer-cookie.cjs'))
 
 const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/pet-store.sqlite')
 
 let cartCount = 0
+let isSignedIn = false
 try {
   const rawCookie = (typeof requestContext !== 'undefined') ? requestContext.cookie('stacks_cart') : null
   // Verified token only — a forged cookie shouldn't influence the
@@ -28,13 +30,20 @@ try {
       cartCount = Number(cart.total_items) || 0
     db.close()
   }
+
+  // Account link toggles between /login and /account based on whether
+  // the customer cookie verifies. Cheap — no DB hit, the helper only
+  // checks the HMAC.
+  const customerCookie = (typeof requestContext !== 'undefined') ? requestContext.cookie('stacks_customer') : null
+  isSignedIn = !!readCustomerId(customerCookie)
 }
-catch { /* leave count at 0 */ }
+catch { /* leave count at 0 / signed-in false */ }
 
 const headerLinks = [
   { href: '/products', label: 'Shop' },
   { href: '/about', label: 'About' },
   { href: '/standard', label: 'Our Standard' },
+  { href: isSignedIn ? '/account' : '/login', label: isSignedIn ? 'Account' : 'Sign in' },
 ]
 
 const footerColumns = [
