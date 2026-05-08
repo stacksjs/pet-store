@@ -39,6 +39,15 @@ route.post('/api/auth/logout', 'Actions/Storefront/LogoutAction').skipCsrf()
 // the action — no separate middleware — and rate-limits per IP.
 route.post('/api/account/profile', 'Actions/Storefront/UpdateProfileAction').skipCsrf()
 
+// Customer address book. Each action reads the `stacks_customer`
+// cookie inline + scopes every UPDATE/DELETE by `customer_id` so a
+// guessed row id can't be hijacked across accounts. SaveAddress
+// handles both create and update — splitting them doubled the route
+// + view code without doubling the value.
+route.post('/api/account/addresses', 'Actions/Storefront/SaveAddressAction').skipCsrf()
+route.post('/api/account/addresses/{id}/delete', 'Actions/Storefront/DeleteAddressAction').skipCsrf()
+route.post('/api/account/addresses/{id}/default', 'Actions/Storefront/SetDefaultAddressAction').skipCsrf()
+
 // ============================================================================
 // Admin: order fulfillment
 //

@@ -1,0 +1,200 @@
+@extends('layouts/storefront')
+
+@section('title', 'Addresses — PetStore')
+@section('description', 'Manage the addresses your orders ship to.')
+
+<script server>
+const Database = require('bun:sqlite').Database
+const path = require('path')
+const { readCustomerId } = require(path.resolve(process.cwd(), 'resources/lib/customer-cookie.cjs'))
+
+const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/stacks.sqlite')
+
+const rawCookie = (typeof requestContext !== 'undefined') ? requestContext.cookie('stacks_customer') : null
+const customerId = readCustomerId(rawCookie)
+
+let customer = null
+let addresses = []
+let editing = null
+
+if (customerId) {
+  const db = new Database(dbPath, { readonly: true })
+  customer = db.query(`SELECT id, name, email, phone FROM customers WHERE id = ?1`).get(customerId)
+
+  if (customer) {
+    addresses = db.query(`
+      SELECT id, label, name, phone, street_1, street_2, city, region, postal_code, country, is_default, updated_at
+      FROM addresses
+      WHERE customer_id = ?1
+      ORDER BY is_default DESC, id DESC
+    `).all(customer.id)
+
+    // ?edit=<id> opens the form pre-filled with that address. Anything
+    // else (or no param) shows a fresh "add an address" form below
+    // the list.
+    const editId = Number((typeof query !== 'undefined' && query?.edit) || 0)
+    if (editId)
+      editing = addresses.find(a => Number(a.id) === editId) || null
+  }
+  db.close()
+}
+
+const noticeRaw = (typeof query !== 'undefined' && query?.notice) ? String(query.notice) : ''
+const noticeSaved = noticeRaw === 'saved'
+const noticeDeleted = noticeRaw === 'deleted'
+const noticeDefaultSet = noticeRaw === 'default-set'
+const noticeMissing = noticeRaw === 'missing-fields'
+const noticeTooLong = noticeRaw === 'field-too-long'
+</script>
+
+@section('content')
+  @if (!customer)
+    <meta http-equiv="refresh" content="0; url=/login">
+    <div class="mx-auto px-6 py-24 max-w-md text-center">
+      <p class="text-stone-600">Redirecting to <a href="/login" class="font-semibold underline">sign in</a>…</p>
+    </div>
+  @else
+    <div class="mx-auto px-6 py-12 max-w-3xl">
+      <nav class="font-semibold text-stone-500 text-xs">
+        <a href="/account" class="hover:text-stone-900">Account</a>
+        <span class="mx-2">/</span>
+        <span class="text-stone-900">Addresses</span>
+      </nav>
+
+      <h1 class="mt-3 font-bold text-4xl text-stone-900 tracking-tight">Addresses</h1>
+      <p class="mt-2 text-stone-600">{{ addresses.length === 1 ? '1 address' : `${addresses.length} addresses` }} on file. The default is what checkout pre-fills.</p>
+
+      @if (noticeSaved)
+        <div class="mt-6 px-5 py-4 text-emerald-900 text-sm bg-emerald-50 border border-emerald-200 rounded-2xl">Saved.</div>
+      @endif
+      @if (noticeDeleted)
+        <div class="mt-6 px-5 py-4 text-sm text-stone-700 bg-stone-100 border border-stone-200 rounded-2xl">Address removed.</div>
+      @endif
+      @if (noticeDefaultSet)
+        <div class="mt-6 px-5 py-4 text-emerald-900 text-sm bg-emerald-50 border border-emerald-200 rounded-2xl">Default updated.</div>
+      @endif
+      @if (noticeMissing)
+        <div class="mt-6 px-5 py-4 text-amber-900 text-sm bg-amber-50 border border-amber-200 rounded-2xl">Name, street, city, and postal code are required.</div>
+      @endif
+      @if (noticeTooLong)
+        <div class="mt-6 px-5 py-4 text-amber-900 text-sm bg-amber-50 border border-amber-200 rounded-2xl">One of those fields is too long.</div>
+      @endif
+
+      @if (addresses.length > 0)
+        <ul class="mt-8 space-y-3">
+          @foreach (addresses as addr)
+            <li class="rounded-3xl border {{ addr.is_default ? 'border-stone-900' : 'border-stone-200' }} p-6">
+              <div class="flex flex-wrap gap-4 items-start justify-between">
+                <div>
+                  <div class="flex gap-2 items-center">
+                    @if (addr.label)
+                      <p class="font-semibold text-stone-500 text-xs tracking-wider uppercase">{{ addr.label }}</p>
+                    @endif
+                    @if (addr.is_default)
+                      <span class="inline-flex items-center px-2 py-0.5 font-semibold text-[10px] text-stone-50 tracking-wider uppercase bg-stone-900 rounded-full">Default</span>
+                    @endif
+                  </div>
+                  <p class="mt-1 font-semibold text-stone-900">{{ addr.name }}</p>
+                  <p class="mt-1 text-sm text-stone-700 whitespace-pre-line">{{ addr.street_1 }}{{ addr.street_2 ? `\n${addr.street_2}` : '' }}
+{{ addr.city }}{{ addr.region ? `, ${addr.region}` : '' }} {{ addr.postal_code }}
+{{ addr.country }}</p>
+                  @if (addr.phone)
+                    <p class="mt-1 text-sm text-stone-500">{{ addr.phone }}</p>
+                  @endif
+                </div>
+
+                <div class="flex flex-col gap-2 items-end">
+                  <a href="/addresses?edit={{ addr.id }}" class="font-semibold text-sm text-stone-700 underline underline-offset-4 hover:text-stone-900">Edit</a>
+                  @if (!addr.is_default)
+                    <form action="/api/account/addresses/{{ addr.id }}/default" method="POST">
+                      <button type="submit" class="font-semibold text-sm text-stone-700 underline underline-offset-4 hover:text-stone-900">Set default</button>
+                    </form>
+                  @endif
+                  <form action="/api/account/addresses/{{ addr.id }}/delete" method="POST" onsubmit="return confirm('Remove this address?');">
+                    <button type="submit" class="font-semibold text-rose-700 text-sm underline underline-offset-4 hover:text-rose-900">Remove</button>
+                  </form>
+                </div>
+              </div>
+            </li>
+          @endforeach
+        </ul>
+      @endif
+
+      <section class="mt-10 p-6 border border-stone-200 rounded-3xl">
+        <h2 class="font-bold text-2xl text-stone-900 tracking-tight">{{ editing ? 'Edit address' : 'Add an address' }}</h2>
+        <p class="mt-1 text-sm text-stone-600">{{ editing ? 'Update this address. Other orders that already shipped to it stay unchanged.' : 'New addresses go straight into your address book; checkout will offer them on the shipping step.' }}</p>
+
+        <form action="/api/account/addresses" method="POST" class="grid gap-4 sm:grid-cols-2 mt-6">
+          @if (editing)
+            <input type="hidden" name="id" value="{{ editing.id }}">
+          @endif
+
+          <div class="sm:col-span-2">
+            <label class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Label (optional)</label>
+            <input type="text" name="label" maxlength="50" value="{{ editing?.label || '' }}" placeholder="Home, Work, Mom's house…" class="mt-1 px-4 py-3 w-full text-sm border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Name</label>
+            <input type="text" name="name" required autocomplete="name" value="{{ editing?.name || customer.name || '' }}" class="mt-1 px-4 py-3 w-full text-sm border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Phone</label>
+            <input type="tel" name="phone" autocomplete="tel" value="{{ editing?.phone || customer.phone || '' }}" class="mt-1 px-4 py-3 w-full text-sm border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none">
+          </div>
+
+          <div class="sm:col-span-2">
+            <label class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Street</label>
+            <input type="text" name="street_1" required autocomplete="address-line1" value="{{ editing?.street_1 || '' }}" class="mt-1 px-4 py-3 w-full text-sm border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none">
+          </div>
+
+          <div class="sm:col-span-2">
+            <label class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Apt / suite (optional)</label>
+            <input type="text" name="street_2" autocomplete="address-line2" value="{{ editing?.street_2 || '' }}" class="mt-1 px-4 py-3 w-full text-sm border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="font-semibold text-stone-500 text-xs tracking-wider uppercase">City</label>
+            <input type="text" name="city" required autocomplete="address-level2" value="{{ editing?.city || '' }}" class="mt-1 px-4 py-3 w-full text-sm border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="font-semibold text-stone-500 text-xs tracking-wider uppercase">State / region</label>
+            <input type="text" name="region" autocomplete="address-level1" value="{{ editing?.region || '' }}" class="mt-1 px-4 py-3 w-full text-sm border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Postal code</label>
+            <input type="text" name="postal_code" required autocomplete="postal-code" value="{{ editing?.postal_code || '' }}" class="mt-1 px-4 py-3 w-full text-sm border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="font-semibold text-stone-500 text-xs tracking-wider uppercase">Country</label>
+            <input type="text" name="country" maxlength="2" autocomplete="country" value="{{ editing?.country || 'US' }}" class="mt-1 px-4 py-3 w-full text-sm uppercase border border-stone-300 rounded-2xl focus:border-stone-900 focus:outline-none">
+            <p class="mt-1 text-stone-500 text-xs">2-letter ISO code (US, CA, GB, …).</p>
+          </div>
+
+          <div class="sm:col-span-2">
+            <label class="inline-flex gap-3 items-center text-sm text-stone-700">
+              <input type="checkbox" name="is_default" value="1" {{ editing?.is_default ? 'checked' : '' }} class="h-4 w-4 text-stone-900 border-stone-300 rounded focus:ring-stone-900">
+              Use as default for new orders
+            </label>
+          </div>
+
+          <div class="flex flex-wrap gap-4 items-center justify-between sm:col-span-2 pt-2">
+            <a href="/account" class="font-semibold text-sm text-stone-600 underline underline-offset-4 hover:text-stone-900">Back to account</a>
+            <div class="flex gap-3 items-center">
+              @if (editing)
+                <a href="/addresses" class="font-semibold text-sm text-stone-500 hover:text-stone-900">Cancel</a>
+              @endif
+              <button type="submit" class="inline-flex items-center justify-center px-6 py-3 font-semibold text-sm text-stone-50 bg-stone-900 hover:bg-stone-800 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 focus-visible:ring-stone-900 transition-colors">
+                {{ editing ? 'Save changes' : 'Add address' }}
+              </button>
+            </div>
+          </div>
+        </form>
+      </section>
+    </div>
+  @endif
+@endsection
