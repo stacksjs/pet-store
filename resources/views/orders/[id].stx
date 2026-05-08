@@ -113,7 +113,13 @@ const total = order ? Number(order.total_amount || 0) : 0
           <div class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-stone-100">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-stone-700" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m0 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0M3.375 5.25h12.5c.621 0 1.125.504 1.125 1.125v9M3.375 5.25a1.125 1.125 0 00-1.125 1.125v9.75c0 .621.504 1.125 1.125 1.125h.375M16.5 14.25V11.25c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v6c0 .621-.504 1.125-1.125 1.125H17.25"/></svg>
           </div>
-          @if (order.tracking_number)
+          @if (String(order.status || '').toUpperCase() === 'CANCELED')
+            <p class="mt-3 font-semibold text-stone-900">Order canceled</p>
+            <p class="mt-1 text-stone-600">If you have questions, just reply to the cancellation email.</p>
+          @elseif (String(order.status || '').toUpperCase() === 'DELIVERED')
+            <p class="mt-3 font-semibold text-stone-900">Delivered</p>
+            <p class="mt-1 text-stone-600">{{ order.carrier ? `${order.carrier} · ` : '' }}<span class="font-mono text-xs text-stone-700">{{ order.tracking_number || '' }}</span></p>
+          @elseif (order.tracking_number)
             <p class="mt-3 font-semibold text-stone-900">Shipped {{ order.shipped_at ? String(order.shipped_at).slice(0, 10) : '' }}</p>
             <p class="mt-1 text-stone-600">{{ order.carrier ? `${order.carrier} · ` : '' }}<span class="font-mono text-xs text-stone-700">{{ order.tracking_number }}</span></p>
             @if (order.tracking_url)

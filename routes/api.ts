@@ -49,11 +49,15 @@ route.post('/api/account/addresses/{id}/delete', 'Actions/Storefront/DeleteAddre
 route.post('/api/account/addresses/{id}/default', 'Actions/Storefront/SetDefaultAddressAction').skipCsrf()
 
 // ============================================================================
-// Admin: order fulfillment
+// Admin: order lifecycle
 //
 // Admin-only — gated by the framework's `auth` middleware (User-side
-// session, same as the rest of the dashboard). Marks an order as
-// shipped, saves carrier + tracking info, and fires the "your order
-// shipped" email to the customer.
+// session, same as the rest of the dashboard).
+//
+//   /ship       → save tracking info + flip to SHIPPED + email buyer
+//   /deliver    → flip to DELIVERED (no email; carrier already sent one)
+//   /cancel     → flip to CANCELED + email buyer with reason + refund
 // ============================================================================
 route.post('/api/orders/{id}/ship', 'Actions/Commerce/MarkOrderShippedAction').middleware('auth')
+route.post('/api/orders/{id}/deliver', 'Actions/Commerce/MarkOrderDeliveredAction').middleware('auth')
+route.post('/api/orders/{id}/cancel', 'Actions/Commerce/CancelOrderAction').middleware('auth')
