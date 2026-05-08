@@ -94,14 +94,6 @@ route.post('/api/checkout/place', 'Actions/Storefront/PlaceOrderAction').skipCsr
 // admin moderation through `/dashboard/commerce/reviews`.
 route.post('/api/reviews/submit', 'Actions/Storefront/SubmitReviewAction').skipCsrf()
 
-// Storefront customer session. Login is a stub today — accepts an
-// email and sets the `stacks_customer` cookie if the address matches
-// a row in `customers`, with no password check. See LoginAction's
-// header for the upgrade path (magic-link or password_hash). Logout
-// just clears the cookie.
-route.post('/api/auth/login', 'Actions/Storefront/LoginAction').skipCsrf()
-route.post('/api/auth/logout', 'Actions/Storefront/LogoutAction').skipCsrf()
-
 // ============================================================================
 // Health & System
 // ============================================================================

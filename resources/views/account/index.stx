@@ -53,9 +53,12 @@ if (customerId) {
           <h1 class="mt-1 font-bold text-4xl text-stone-900 tracking-tight">Hi, {{ customer.name }}.</h1>
           <p class="mt-2 text-stone-600">{{ customer.email }}</p>
         </div>
-        <form action="/api/auth/logout" method="POST">
-          <button type="submit" class="font-semibold text-sm text-stone-600 underline underline-offset-4 hover:text-stone-900">Sign out</button>
-        </form>
+        <div class="flex gap-4 items-center">
+          <a href="/profile" class="font-semibold text-sm text-stone-600 underline underline-offset-4 hover:text-stone-900">Edit profile</a>
+          <form action="/api/auth/logout" method="POST">
+            <button type="submit" class="font-semibold text-sm text-stone-600 underline underline-offset-4 hover:text-stone-900">Sign out</button>
+          </form>
+        </div>
       </div>
 
       <div class="grid gap-4 sm:grid-cols-3 mt-10">

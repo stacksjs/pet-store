@@ -71,6 +71,13 @@ const footerColumns = [
       { href: '/shipping', label: 'Shipping & returns' },
     ],
   },
+  {
+    title: 'Legal',
+    links: [
+      { href: '/privacy', label: 'Privacy' },
+      { href: '/terms', label: 'Terms' },
+    ],
+  },
 ]
 </script>
 
