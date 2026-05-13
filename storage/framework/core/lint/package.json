@@ -51,7 +51,7 @@
   },
   "devDependencies": {
     "better-dx": "^0.2.12",
-    "@stacksjs/gitlint": "^0.1.5",
+    "@stacksjs/gitlint": "^0.1.6",
     "bun-git-hooks": "^0.3.1"
   }
 }

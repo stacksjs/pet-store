@@ -74,7 +74,7 @@
   },
   "devDependencies": {
     "better-dx": "^0.2.12",
-    "ts-images": "^0.1.7"
+    "ts-images": "^0.1.8"
   },
   "workspaces": [
     "storage/framework/**"
