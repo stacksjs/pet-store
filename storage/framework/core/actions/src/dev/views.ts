@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { existsSync } from 'node:fs'
 import { config } from '@stacksjs/config'
 import { projectPath } from '@stacksjs/path'
 
@@ -185,10 +186,25 @@ async function startDefaultServer() {
     onRequest: async (req: Request) => {
       const url = new URL(req.url)
 
-      // /api/** → API dev server. Storefront forms posting to local
-      // routes need this; without it the frontend's stx-serve answers
-      // with a 404 page since it doesn't know about bun-router actions.
-      if (url.pathname.startsWith('/api/'))
+      // Maintenance / coming-soon gate. Runs first so it can intercept
+      // both stx page renders and API-bound traffic. The gate itself
+      // allowlists `/coming-soon`, `/api/email/subscribe`, the secret
+      // bypass URL, and static assets — so the holding page renders
+      // and visitors with a magic-link cookie pass through normally.
+      const { maintenanceGate } = await import('@stacksjs/server')
+      const gated = await maintenanceGate(req)
+      if (gated)
+        return gated
+
+      // Forward to the API dev server when this request can't possibly
+      // be a stx page render. Two cases:
+      //   1. `/api/**` — the canonical API prefix.
+      //   2. Any non-GET/HEAD verb — POST/PUT/PATCH/DELETE never match
+      //      a static stx page, so they always belong to bun-router.
+      // Without (2), `route.post('/subscribe', ...)` declared at the
+      // root (no /api prefix) hits stx-serve and 404s.
+      const apiMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+      if (url.pathname.startsWith('/api/') || apiMethods.has(req.method))
         return proxyToApi(req, apiBase)
 
       // Stash cookies + url so server-script blocks rendering this
@@ -205,13 +221,15 @@ async function startDefaultServer() {
 }
 
 async function firstExistingPath(candidates: string[]): Promise<string | null> {
+  // existsSync, not `Bun.file(dir).exists()` — `Bun.file` is file-only
+  // and returns false for any directory, which would cause every
+  // candidate to fall through to the caller's default and silently
+  // break projects whose layouts/components live at the legacy paths
+  // (`resources/{layouts,components}/`) instead of the canonical
+  // `resources/views/{layouts,components}/`.
   for (const candidate of candidates) {
-    try {
-      const stat = await Bun.file(projectPath(candidate)).exists()
-      if (stat)
-        return candidate
-    }
-    catch { /* ignore */ }
+    if (existsSync(projectPath(candidate)))
+      return candidate
   }
   return null
 }
