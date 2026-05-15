@@ -25,10 +25,37 @@ import type { UserModel } from '@stacksjs/orm'
  */
 export const gates = {
   /**
-   * Check if user can access admin area
+   * Check if a user can access the admin area.
+   *
+   * Driven by two env vars; either one matching is enough:
+   *   - ADMIN_EMAILS         comma-separated list of exact emails
+   *                          (e.g. `chris@barebowl.com,glenn@example.com`)
+   *   - ADMIN_EMAIL_DOMAINS  comma-separated list of email domains
+   *                          (with or without leading `@`, e.g.
+   *                          `barebowl.com,stacksjs.org`)
+   *
+   * Default is deny-all when neither is set — safer than carrying a
+   * hardcoded `@stacksjs.org` allowlist into apps that aren't run by
+   * stacksjs. Comparison is case-insensitive on the email side and
+   * matched against the suffix `@<domain>` so a user typing
+   * `Chris@BareBowl.com` still matches an `ADMIN_EMAIL_DOMAINS=barebowl.com`
+   * entry.
    */
   'access-admin': (user: UserModel | null) => {
-    return user?.email?.endsWith('@stacksjs.org') ?? false
+    const email = user?.email?.toLowerCase()
+    if (!email) return false
+
+    const explicit = (process.env.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean)
+    if (explicit.includes(email)) return true
+
+    const domains = (process.env.ADMIN_EMAIL_DOMAINS ?? '')
+      .split(',')
+      .map(s => s.trim().toLowerCase().replace(/^@/, ''))
+      .filter(Boolean)
+    return domains.some(domain => email.endsWith(`@${domain}`))
   },
 
   /**

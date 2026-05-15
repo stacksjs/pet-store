@@ -38,3 +38,26 @@ route.post('/api/auth/logout', 'Actions/Storefront/LogoutAction').skipCsrf()
 // Self-serve profile edit. Reads the `stacks_customer` cookie inside
 // the action — no separate middleware — and rate-limits per IP.
 route.post('/api/account/profile', 'Actions/Storefront/UpdateProfileAction').skipCsrf()
+
+// Customer address book. Each action reads the `stacks_customer`
+// cookie inline + scopes every UPDATE/DELETE by `customer_id` so a
+// guessed row id can't be hijacked across accounts. SaveAddress
+// handles both create and update — splitting them doubled the route
+// + view code without doubling the value.
+route.post('/api/account/addresses', 'Actions/Storefront/SaveAddressAction').skipCsrf()
+route.post('/api/account/addresses/{id}/delete', 'Actions/Storefront/DeleteAddressAction').skipCsrf()
+route.post('/api/account/addresses/{id}/default', 'Actions/Storefront/SetDefaultAddressAction').skipCsrf()
+
+// ============================================================================
+// Admin: order lifecycle
+//
+// Admin-only — gated by the framework's `auth` middleware (User-side
+// session, same as the rest of the dashboard).
+//
+//   /ship       → save tracking info + flip to SHIPPED + email buyer
+//   /deliver    → flip to DELIVERED (no email; carrier already sent one)
+//   /cancel     → flip to CANCELED + email buyer with reason + refund
+// ============================================================================
+route.post('/api/orders/{id}/ship', 'Actions/Commerce/MarkOrderShippedAction').middleware('auth')
+route.post('/api/orders/{id}/deliver', 'Actions/Commerce/MarkOrderDeliveredAction').middleware('auth')
+route.post('/api/orders/{id}/cancel', 'Actions/Commerce/CancelOrderAction').middleware('auth')

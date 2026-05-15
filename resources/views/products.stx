@@ -36,10 +36,35 @@ const products = db.query(`
   imageSrcset: productSrcset(p.image_url),
   badge: p.inventory_count < 30 ? 'Limited' : '',
 }))
+
+// CollectionPage + ItemList JSON-LD. Tells Google this URL is a
+// category/collection rather than a single product, and provides
+// the catalogue order so the breadcrumb + search-result list show
+// items in the same order shoppers see them. Generated only when
+// there's at least one product so we don't emit an empty ItemList.
+const collectionSchema = products.length > 0 ? JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  'name': 'PetStore — All products',
+  'description': 'Single-ingredient, slow-dehydrated treats for dogs.',
+  'mainEntity': {
+    '@type': 'ItemList',
+    'numberOfItems': products.length,
+    'itemListElement': products.map((p, i) => ({
+      '@type': 'ListItem',
+      'position': i + 1,
+      'url': `/products/${p.slug}`,
+      'name': p.name,
+    })),
+  },
+}) : ''
 </script>
 
 @section('content')
   <div class="mx-auto px-6 py-12 max-w-6xl">
+    @if (collectionSchema)
+      <script type="application/ld+json">{!! collectionSchema !!}</script>
+    @endif
 
     <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-10">
       <div>
