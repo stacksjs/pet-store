@@ -17,6 +17,13 @@ interface OrderSummaryProps {
   /** Optional, pre-formatted "Add $X.XX more for free shipping." nudge.
    *  When empty/omitted the nudge is hidden — let the caller decide. */
   freeShippingNote?: string
+  /** Pre-formatted discount label, e.g. "-$5.00". Renders the discount
+   *  row between Subtotal and Shipping when set. Empty/omitted hides
+   *  the row entirely so non-coupon callers don't get a stray dash. */
+  discountLabel?: string
+  /** Uppercase coupon code, e.g. "FREEZE15". Shown next to the discount
+   *  amount so the shopper can see which code is driving the discount. */
+  appliedCouponCode?: string
   showItems?: boolean
   ctaHref?: string
   ctaLabel?: string
@@ -31,6 +38,8 @@ const {
   shippingLabel,
   totalLabel,
   freeShippingNote = '',
+  discountLabel = '',
+  appliedCouponCode = '',
   showItems = false,
   ctaHref = '',
   ctaLabel = '',
@@ -57,6 +66,17 @@ const {
 
   <dl class="space-y-3 text-sm {{ showItems ? '' : 'mt-4' }}">
     <div class="flex justify-between"><dt class="text-stone-600">Subtotal</dt><dd class="font-semibold text-stone-900">{{ subtotalLabel }}</dd></div>
+    @if (discountLabel)
+      <div class="flex justify-between">
+        <dt class="text-stone-600">
+          Discount
+          @if (appliedCouponCode)
+            <span class="ml-1 text-[10px] font-mono uppercase tracking-wider text-emerald-700">{{ appliedCouponCode }}</span>
+          @endif
+        </dt>
+        <dd class="font-semibold text-emerald-700">{{ discountLabel }}</dd>
+      </div>
+    @endif
     <div class="flex justify-between"><dt class="text-stone-600">Shipping</dt><dd class="font-semibold text-stone-900">{{ shippingLabel }}</dd></div>
     @if (freeShippingNote)
       <p class="px-3 py-2 text-emerald-700 text-xs bg-emerald-50 rounded-lg">{{ freeShippingNote }}</p>

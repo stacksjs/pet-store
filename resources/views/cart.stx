@@ -18,9 +18,14 @@ const token = readCartToken(rawCookie)
 let items = []
 let cart = null
 
+let appliedCoupon = null
+
 if (token) {
   cart = db.query(`SELECT * FROM carts WHERE session_token = ?1 AND status = 'active' LIMIT 1`).get(token)
   if (cart) {
+    if (cart.coupon_id) {
+      appliedCoupon = db.query(`SELECT code, discount_type, discount_value FROM coupons WHERE id = ?1`).get(cart.coupon_id)
+    }
     items = db.query(`
       SELECT ci.id, ci.quantity, ci.unit_price, ci.total_price, ci.product_name,
             ci.product_image, ci.product_sku, p.weight_grams
@@ -55,9 +60,14 @@ if (token) {
 const FREE_SHIPPING_THRESHOLD = Number(process.env.STOREFRONT_FREE_SHIPPING_THRESHOLD ?? 40) || 40
 const FLAT_SHIPPING = Number(process.env.STOREFRONT_FLAT_SHIPPING ?? 5) || 5
 const subtotal = items.reduce((sum, i) => sum + i.lineTotal, 0)
-const shipping = subtotal <= 0 ? 0 : (subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : FLAT_SHIPPING)
-const total = subtotal + shipping
-const remainingForFree = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal)
+// Discount comes off the subtotal before shipping is computed, so a
+// coupon that takes the order below the free-ship threshold still
+// charges shipping the way a smaller cart would.
+const discount = cart ? Number(cart.discount_amount || 0) : 0
+const subtotalAfterDiscount = Math.max(0, subtotal - discount)
+const shipping = subtotalAfterDiscount <= 0 ? 0 : (subtotalAfterDiscount >= FREE_SHIPPING_THRESHOLD ? 0 : FLAT_SHIPPING)
+const total = subtotalAfterDiscount + shipping
+const remainingForFree = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotalAfterDiscount)
 
 // Pre-format every numeric so the OrderSummary component template doesn't
 // have to call .toFixed() on a defineProps local — STX's SSR pass doesn't
@@ -65,6 +75,8 @@ const remainingForFree = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal)
 const subtotalLabel = `$${subtotal.toFixed(2)}`
 const shippingLabel = shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`
 const totalLabel = `$${total.toFixed(2)}`
+const discountLabel = discount > 0 ? `-$${discount.toFixed(2)}` : ''
+const appliedCouponCode = appliedCoupon ? String(appliedCoupon.code || '').toUpperCase() : ''
 const freeShippingNote = (shipping > 0 && remainingForFree > 0)
   ? `Add $${remainingForFree.toFixed(2)} more for free shipping.`
   : ''
@@ -168,6 +180,50 @@ const freeShippingHeadline = freeShippingUnlocked
               </div>
             </article>
           @endforeach
+
+          {{-- Coupon code apply / remove. Lives at the bottom of the
+               items column rather than the OrderSummary sidebar so a
+               shopper who types a code can read the discount line
+               appear in the sticky summary next to it. POSTs back to
+               /cart on success/failure — flash messaging will land
+               here once the storefront grows an XHR layer; for now
+               the cart re-renders with either the applied chip or
+               the error state derived from the absence of a coupon
+               row. --}}
+          <div class="mt-2 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+            @if (appliedCouponCode)
+              <div class="flex gap-3 items-center justify-between">
+                <div class="flex gap-2 items-center min-w-0">
+                  <span aria-hidden="true" class="inline-flex flex-shrink-0 h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                  </span>
+                  <div class="min-w-0">
+                    <p class="font-semibold text-sm text-stone-900 tabular-nums">{{ appliedCouponCode }}</p>
+                    <p class="text-xs text-stone-500">{{ discountLabel }} off your subtotal</p>
+                  </div>
+                </div>
+                <form action="/api/cart/coupon" method="POST">
+                  <input type="hidden" name="remove" value="1">
+                  <button type="submit" class="font-medium text-xs text-stone-500 underline underline-offset-4 hover:text-stone-900 focus-visible:outline-none focus-visible:text-stone-900">Remove</button>
+                </form>
+              </div>
+            @else
+              <form action="/api/cart/coupon" method="POST" class="flex flex-col sm:flex-row gap-2">
+                <label for="cart-coupon-code" class="sr-only">Promo code</label>
+                <input
+                  type="text"
+                  id="cart-coupon-code"
+                  name="code"
+                  placeholder="Promo code"
+                  autocomplete="off"
+                  spellcheck="false"
+                  maxlength="40"
+                  class="flex-1 rounded-full bg-white border border-stone-300 px-4 py-2 text-sm uppercase tracking-wider text-stone-900 placeholder:normal-case placeholder:tracking-normal placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-stone-900"
+                >
+                <button type="submit" class="rounded-full border border-stone-300 hover:border-stone-900 hover:bg-stone-100 px-5 py-2 font-medium text-sm text-stone-700 hover:text-stone-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 focus-visible:ring-stone-900">Apply</button>
+              </form>
+            @endif
+          </div>
         </div>
 
         <OrderSummary
@@ -175,6 +231,8 @@ const freeShippingHeadline = freeShippingUnlocked
           shippingLabel="{{ shippingLabel }}"
           totalLabel="{{ totalLabel }}"
           freeShippingNote="{{ freeShippingNote }}"
+          discountLabel="{{ discountLabel }}"
+          appliedCouponCode="{{ appliedCouponCode }}"
           ctaHref="/checkout/contact"
           ctaLabel="Checkout"
           secondaryHref="/products"

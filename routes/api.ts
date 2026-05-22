@@ -45,6 +45,14 @@ route.post('/api/account/profile', 'Actions/Storefront/UpdateProfileAction').ski
 // the same cart-cookie flow as AddToCart, no login required.
 route.post('/api/cart/reorder', 'Actions/Storefront/ReorderAction').skipCsrf()
 
+// Coupon apply / remove. Single endpoint, `remove=1` clears the
+// active coupon. Validates against the coupons table (active, in
+// date range, under usage limit, min subtotal met) and updates the
+// cart's discount_amount + total. usage_count is bumped at
+// PlaceOrderAction time, not here, so an abandoned try doesn't burn
+// up a one-shot code.
+route.post('/api/cart/coupon', 'Actions/Storefront/ApplyCouponAction').skipCsrf()
+
 // Customer address book. Each action reads the `stacks_customer`
 // cookie inline + scopes every UPDATE/DELETE by `customer_id` so a
 // guessed row id can't be hijacked across accounts. SaveAddress
