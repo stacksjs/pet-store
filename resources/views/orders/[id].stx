@@ -173,6 +173,28 @@ const total = order ? Number(order.total_amount || 0) : 0
         </div>
       </div>
 
+      @if (String(order.status || '').toUpperCase() !== 'CANCELED' && items.length > 0)
+        {{-- Reorder CTA. POSTs the order uuid (capability token, same
+             one this URL already exposes) to /api/cart/reorder, which
+             re-adds every still-available line to the shopper's
+             current cart and redirects to /cart. Out-of-stock items
+             at reorder time get silently skipped so the bowl gets
+             rebuilt from whatever's still on the shelf. --}}
+        <form action="/api/cart/reorder" method="POST" class="mt-8 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+          <input type="hidden" name="order_uuid" value="{{ order.uuid }}">
+          <button
+            type="submit"
+            class="inline-flex flex-1 sm:flex-none items-center justify-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 px-6 py-3 text-sm font-semibold text-stone-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 focus-visible:ring-stone-900"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+            Reorder this bowl
+          </button>
+          <p class="text-xs text-stone-500 leading-relaxed sm:max-w-xs">
+            Adds the same {{ items.length }} item{{ items.length === 1 ? '' : 's' }} back to your cart. Out-of-stock items are skipped automatically.
+          </p>
+        </form>
+      @endif
+
       <div class="mt-10 grid sm:grid-cols-3 gap-4 text-sm">
         <div class="rounded-2xl border border-stone-200 p-5">
           <div class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-stone-100">

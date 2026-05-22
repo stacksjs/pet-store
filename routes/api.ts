@@ -39,6 +39,12 @@ route.post('/api/auth/logout', 'Actions/Storefront/LogoutAction').skipCsrf()
 // the action — no separate middleware — and rate-limits per IP.
 route.post('/api/account/profile', 'Actions/Storefront/UpdateProfileAction').skipCsrf()
 
+// One-click reorder. Takes an order UUID (capability token, same as
+// /orders/{uuid}), re-adds every still-available line to the
+// shopper's current cart, redirects to /cart. Anonymous-safe — uses
+// the same cart-cookie flow as AddToCart, no login required.
+route.post('/api/cart/reorder', 'Actions/Storefront/ReorderAction').skipCsrf()
+
 // Customer address book. Each action reads the `stacks_customer`
 // cookie inline + scopes every UPDATE/DELETE by `customer_id` so a
 // guessed row id can't be hijacked across accounts. SaveAddress
