@@ -74,6 +74,29 @@ export class MailgunDriver extends BaseEmailDriver {
 
       formData.append('subject', message.subject)
 
+      // Reply-To: Mailgun accepts via the `h:Reply-To` form field
+      // (stacksjs/stacks#1871 M-4). Multiple addresses are
+      // comma-separated per RFC 5322.
+      if (message.replyTo) {
+        const formatted = this.formatMailgunAddresses(
+          Array.isArray(message.replyTo) || typeof message.replyTo === 'string'
+            ? message.replyTo
+            : [message.replyTo],
+        )
+        if (formatted.length > 0) formData.append('h:Reply-To', formatted.join(', '))
+      }
+
+      // Custom header passthrough (stacksjs/stacks#1871 M-5). Mailgun
+      // exposes arbitrary outgoing headers via the `h:<HeaderName>`
+      // form-field convention; the framework's `headers` map keys are
+      // taken verbatim, so callers writing `{ 'List-Unsubscribe': … }`
+      // get the header on the wire as written.
+      if (message.headers) {
+        for (const [k, v] of Object.entries(message.headers)) {
+          if (typeof v === 'string') formData.append(`h:${k}`, v)
+        }
+      }
+
       // Only append html content if it exists
       if (finalHtml) {
         formData.append('html', finalHtml)
@@ -113,17 +136,17 @@ export class MailgunDriver extends BaseEmailDriver {
       return [addresses]
 
     return addresses.map((_addr) => {
-      if (typeof addr === 'string')
-        return addr
-      if (!addr.name) return addr.address
+      if (typeof _addr === 'string')
+        return _addr
+      if (!_addr.name) return _addr.address
       // Same RFC 5322 quoting we use in base.ts — Mailgun forwards the
       // header verbatim to the receiving SMTP server, so unquoted
       // commas/quotes/angle-brackets in display names break addressing.
-      const needsQuoting = /[",()<>[\]:;@\\]/.test(addr.name)
+      const needsQuoting = /[",()<>[\]:;@\\]/.test(_addr.name)
       const safeName = needsQuoting
-        ? `"${addr.name.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
-        : addr.name
-      return `${safeName} <${addr.address}>`
+        ? `"${_addr.name.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+        : _addr.name
+      return `${safeName} <${_addr.address}>`
     })
   }
 

@@ -238,6 +238,7 @@ export type CreateBooleanOption =
   | 'functions'
   | 'api'
   | 'database'
+  | 'minimal'
 export type CreateOptions = {
   [key in CreateBooleanOption]: boolean
 } & {
@@ -250,6 +251,7 @@ export type DevOption =
   | 'frontend'
   | 'api'
   | 'desktop'
+  | 'native'
   | 'all'
   | 'email'
   | 'system-tray'
@@ -403,6 +405,14 @@ export interface ReleaseOptions extends CliOptions {
   dryRun?: boolean
   bump?: 'patch' | 'minor' | 'major' | 'prepatch' | 'preminor' | 'premajor' | 'prerelease' | string
 }
+
+export interface ChangelogOptions extends CliOptions {
+  dryRun?: boolean
+  from?: string
+  to?: string
+  version?: string
+}
+
 export interface ProjectsOptions extends CliOptions {
   list?: boolean
 }

@@ -7,6 +7,8 @@ import type {
   FileContents,
   ListOptions,
   MimeTypeOptions,
+  PresignedUploadUrl,
+  PresignedUploadUrlOptions,
   PublicUrlOptions,
   SignedUrlOptions,
   StatEntry,
@@ -16,6 +18,7 @@ import type {
   Visibility,
 } from '../types'
 import { normalizeExpiryToMilliseconds } from '../types'
+import { sanitizePresignedDir, sanitizePresignedFilename } from '../path-sanitize'
 
 /**
  * AWS S3 storage adapter using ts-cloud S3Client
@@ -298,6 +301,96 @@ export class S3StorageAdapter implements StorageAdapter {
    */
   async signedUrl(path: string, options: SignedUrlOptions): Promise<string> {
     return this.temporaryUrl(path, { expiresIn: options.expiresIn })
+  }
+
+  /**
+   * Mint a presigned PUT URL for direct browser-to-S3 uploads
+   * (stacksjs/stacks#1856 Stage 6). Pairs with the `useDirectUpload`
+   * frontend composable in `defaults/functions/uploads.ts`.
+   *
+   * Returns `{ url, path, key, contentType, maxBytes? }`. The browser
+   * PUTs the bytes to `url` with `Content-Type: contentType`; the
+   * server persists `key` alongside the user record once the upload
+   * resolves.
+   *
+   * `maxBytes` is echoed back for the client to advise on size but is
+   * NOT enforced by the signed URL itself — presigned PUTs can't carry
+   * a Content-Length-Range condition (that's a presigned POST policy
+   * thing). For untrusted clients, scan post-upload or fall back to a
+   * server-proxied multipart endpoint.
+   */
+  async presignedUploadUrl(options: PresignedUploadUrlOptions): Promise<PresignedUploadUrl> {
+    if (!options.contentType)
+      throw new Error('[storage/s3] presignedUploadUrl requires `contentType` — S3 signs against the exact header.')
+
+    const expiresIn = Math.floor(options.expiresIn)
+    const MIN_EXPIRY = 60
+    const MAX_EXPIRY = 7 * 24 * 60 * 60
+    if (!Number.isFinite(expiresIn) || expiresIn < MIN_EXPIRY || expiresIn > MAX_EXPIRY) {
+      throw new RangeError(`[storage/s3] presignedUploadUrl expiresIn must be between 60s and 7 days (got ${expiresIn}s)`)
+    }
+
+    // Sanitize caller-controlled `dir` and `filename` BEFORE concatenation
+    // (stacksjs/stacks#1873 S-1, S-2). Without this:
+    //   - `dir: '../../sensitive'` escapes the configured prefix because
+    //     S3 keys are opaque strings — there's no filesystem `..` to
+    //     resolve against, so the bad segment lands verbatim in the key.
+    //   - `filename: 'foo/bar.exe'` injects a separator that flips the
+    //     "filename" into a sub-path the caller doesn't own, and the
+    //     `.exe` extension overrides whatever extension contentType
+    //     would have produced.
+    // Both throw `PathSanitizeError` (a subclass of `Error`) so callers
+    // can map them to 400s; the storage layer never sees the dangerous
+    // shape.
+    const safeDir = sanitizePresignedDir(options.dir)
+    const safeFilename = options.filename !== undefined
+      ? sanitizePresignedFilename(options.filename)
+      : `${crypto.randomUUID().replace(/-/g, '')}${this.extensionForContentType(options.contentType)}`
+    const path = safeDir ? `${safeDir}/${safeFilename}` : safeFilename
+    const key = this.prefixPath(path)
+
+    const url = await this.client.getSignedUrl({
+      bucket: this.bucket,
+      key,
+      expiresIn,
+      operation: 'putObject',
+    })
+
+    return {
+      url,
+      path,
+      key,
+      contentType: options.contentType,
+      maxBytes: options.maxBytes,
+    }
+  }
+
+  /**
+   * Map MIME → extension for presigned upload URL filenames. Mirrors
+   * the short list in `putUploadedFile()`; kept private here so the
+   * adapter stays self-contained.
+   */
+  private extensionForContentType(contentType: string): string {
+    const mime = contentType.toLowerCase().split(';')[0]?.trim() ?? ''
+    const map: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+      'image/gif': '.gif',
+      'image/avif': '.avif',
+      'image/svg+xml': '.svg',
+      'application/pdf': '.pdf',
+      'application/json': '.json',
+      'application/zip': '.zip',
+      'text/plain': '.txt',
+      'text/csv': '.csv',
+      'video/mp4': '.mp4',
+      'video/webm': '.webm',
+      'audio/mpeg': '.mp3',
+      'audio/wav': '.wav',
+    }
+    return map[mime] ?? ''
   }
 
   async checksum(path: string, options: ChecksumOptions = {}): Promise<string> {

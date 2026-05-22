@@ -16,7 +16,7 @@ export interface OrderConfirmationOptions {
   shipping: number
   total: number
   shippingAddress?: string
-  /** Absolute URL the receipt CTA should link to (e.g. `/orders/<uuid>`). */
+  /** Absolute URL the receipt CTA should link to (e.g. `/orders/123`). */
   orderUrl: string
 }
 

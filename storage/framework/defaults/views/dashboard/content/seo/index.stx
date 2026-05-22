@@ -71,7 +71,7 @@
               <div class="max-w-md text-gray-500 text-sm truncate dark:text-neutral-300">{{ entry.metaDescription }}</div>
             </td>
             <td class="px-4 py-4 text-right whitespace-nowrap">
-              <span class="{{ scoreBadgeClass(entry.score) }}">{{ entry.score }}</span>
+              <span :class="scoreBadgeClass(entry.score)">{{ entry.score }}</span>
             </td>
             <td class="px-4 py-4 whitespace-nowrap"><div class="text-gray-500 text-sm dark:text-neutral-300">{{ entry.lastUpdated }}</div></td>
             <td class="px-4 py-4 font-medium text-right text-sm whitespace-nowrap">

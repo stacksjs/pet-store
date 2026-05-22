@@ -50,6 +50,434 @@ function restoreConsole(): void {
   }
 }
 
+function cmsJson(data: unknown, init: ResponseInit = {}): Response {
+  const headers = new Headers(init.headers)
+  headers.set('content-type', 'application/json; charset=utf-8')
+  headers.set('cache-control', 'no-store')
+
+  return new Response(JSON.stringify(data), { ...init, headers })
+}
+
+function cmsSlug(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+async function cmsBody(req: Request): Promise<Record<string, any>> {
+  if (req.method === 'GET' || req.method === 'HEAD')
+    return {}
+
+  const type = req.headers.get('content-type') || ''
+  if (type.includes('application/json'))
+    return await req.json().catch(() => ({}))
+
+  if (type.includes('form')) {
+    const form = await req.formData()
+    return Object.fromEntries(form.entries())
+  }
+
+  return {}
+}
+
+const cmsTableColumns: Record<string, string[]> = {
+  posts: ['title', 'poster', 'content', 'excerpt', 'views', 'published_at', 'status', 'is_featured', 'author_id', 'created_at', 'updated_at'],
+  pages: ['title', 'template', 'views', 'published_at', 'conversions', 'author_id', 'created_at', 'updated_at'],
+  authors: ['name', 'email', 'user_id', 'created_at', 'updated_at'],
+  categories: ['name', 'description', 'slug', 'image_url', 'is_active', 'parent_category_id', 'display_order', 'created_at', 'updated_at'],
+  tags: ['name', 'slug', 'description', 'post_count', 'color', 'created_at', 'updated_at'],
+  comments: ['title', 'body', 'content', 'status', 'author_name', 'author_email', 'post_title', 'is_approved', 'approved_at', 'rejected_at', 'updated_at'],
+}
+
+interface CmsStore {
+  all: (table: string, orderBy?: string) => Promise<any[]>
+  insert: (table: string, values: Record<string, any>) => Promise<any | undefined>
+  update: (table: string, id: number, values: Record<string, any>) => Promise<any | undefined>
+  delete: (table: string, id: number) => Promise<void>
+  find: (table: string, id: number) => Promise<any | undefined>
+  close?: () => void
+}
+
+function cmsDatabasePath(): string {
+  const configuredPath = process.env.DB_DATABASE_PATH || 'database/stacks.sqlite'
+  return configuredPath.startsWith('/') ? configuredPath : projectPath(configuredPath)
+}
+
+function cmsQuoteIdentifier(_value: string): string {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(_value))
+    throw new Error(`Invalid CMS database identifier: ${_value}`)
+
+  return `"${_value.replace(/"/g, '""')}"`
+}
+
+function cmsValuesForTable(table: string, values: Record<string, any>): Record<string, any> {
+  const columns = cmsTableColumns[table]
+  if (!columns)
+    throw new Error(`Unsupported CMS table: ${table}`)
+
+  return Object.fromEntries(
+    Object.entries(values).filter(([key, value]) => columns.includes(key) && value !== undefined),
+  )
+}
+
+async function createSqliteCmsStore(): Promise<CmsStore | undefined> {
+  if ((process.env.DB_CONNECTION || 'sqlite') !== 'sqlite' || !existsSync(cmsDatabasePath()))
+    return undefined
+
+  const { Database } = await import('bun:sqlite')
+  const sqlite = new Database(cmsDatabasePath())
+
+  async function find(table: string, id: number): Promise<any | undefined> {
+    return sqlite.query(`select * from ${cmsQuoteIdentifier(table)} where id = ? limit 1`).get(id) as any
+  }
+
+  return {
+    async all(table, orderBy = 'created_at') {
+      return sqlite.query(`select * from ${cmsQuoteIdentifier(table)} order by ${cmsQuoteIdentifier(orderBy)} desc`).all() as any[]
+    },
+    async insert(table, values) {
+      const safeValues = cmsValuesForTable(table, values)
+      const columns = Object.keys(safeValues)
+      const placeholders = columns.map(() => '?').join(', ')
+      const sql = `insert into ${cmsQuoteIdentifier(table)} (${columns.map(cmsQuoteIdentifier).join(', ')}) values (${placeholders})`
+      const result = sqlite.query(sql).run(...columns.map(column => safeValues[column])) as { lastInsertRowid?: number | bigint }
+      return await find(table, Number(result.lastInsertRowid))
+    },
+    async update(table, id, values) {
+      const safeValues = cmsValuesForTable(table, values)
+      const columns = Object.keys(safeValues)
+      if (columns.length) {
+        const assignments = columns.map(column => `${cmsQuoteIdentifier(column)} = ?`).join(', ')
+        sqlite.query(`update ${cmsQuoteIdentifier(table)} set ${assignments} where id = ?`).run(...columns.map(column => safeValues[column]), id)
+      }
+      return await find(table, id)
+    },
+    async delete(table, id) {
+      sqlite.query(`delete from ${cmsQuoteIdentifier(table)} where id = ?`).run(id)
+    },
+    find,
+    close() {
+      sqlite.close()
+    },
+  }
+}
+
+async function createCmsStore(): Promise<CmsStore> {
+  const sqliteStore = await createSqliteCmsStore()
+  if (sqliteStore)
+    return sqliteStore
+
+  const { db } = await import('@stacksjs/database')
+  return {
+    async all(table, orderBy = 'created_at') {
+      let query = db.selectFrom(table).selectAll()
+      if (orderBy)
+        query = query.orderBy(orderBy, 'desc')
+      return await query.execute()
+    },
+    async insert(table, values) {
+      let row = await db.insertInto(table).values(values).returningAll().executeTakeFirst()
+      if (!row || row.id == null) {
+        const lookup = values.email ? ['email', values.email] : values.name ? ['name', values.name] : ['title', values.title]
+        row = await db.selectFrom(table).selectAll().where(lookup[0], '=', lookup[1]).orderBy('id', 'desc').executeTakeFirst()
+      }
+      return row
+    },
+    async update(table, id, values) {
+      await db.updateTable(table).set(values).where('id', '=', id).execute()
+      return await db.selectFrom(table).selectAll().where('id', '=', id).executeTakeFirst()
+    },
+    async delete(table, id) {
+      await db.deleteFrom(table).where('id', '=', id).execute()
+    },
+    async find(table, id) {
+      return await db.selectFrom(table).selectAll().where('id', '=', id).executeTakeFirst()
+    },
+  }
+}
+
+async function safeCmsAll(store: CmsStore, table: string, orderBy = 'created_at'): Promise<any[]> {
+  try {
+    return await store.all(table, orderBy)
+  }
+  catch {
+    return []
+  }
+}
+
+async function dashboardCmsApi(req: Request): Promise<Response | null> {
+  const url = new URL(req.url)
+  if (!url.pathname.startsWith('/api/dashboard/cms'))
+    return null
+
+  let store: CmsStore | undefined
+  try {
+    store = await createCmsStore()
+    const path = url.pathname.replace(/^\/api\/dashboard\/cms\/?/, '')
+    const parts = path.split('/').filter(Boolean)
+    const resource = parts[0] || ''
+    const id = parts[1] ? Number(parts[1]) : undefined
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+
+    if (req.method === 'GET' && !resource) {
+      const [posts, pages, authors, categories, tags, comments] = await Promise.all([
+        safeCmsAll(store, 'posts'),
+        safeCmsAll(store, 'pages'),
+        safeCmsAll(store, 'authors'),
+        safeCmsAll(store, 'categories'),
+        safeCmsAll(store, 'tags'),
+        safeCmsAll(store, 'comments'),
+      ])
+
+      return cmsJson({
+        ok: true,
+        posts,
+        pages,
+        authors,
+        categories,
+        tags,
+        comments,
+        stats: {
+          posts: posts.length,
+          publishedPosts: posts.filter((p: any) => p.status === 'published').length,
+          draftPosts: posts.filter((p: any) => p.status === 'draft').length,
+          pages: pages.length,
+          categories: categories.length,
+          tags: tags.length,
+          comments: comments.length,
+        },
+      })
+    }
+
+    if (resource === 'posts') {
+      if (req.method === 'POST') {
+        const body = await cmsBody(req)
+        const title = String(body.title || '').trim()
+        if (!title)
+          return cmsJson({ ok: false, error: 'Title is required' }, { status: 422 })
+
+        const post = await store.insert('posts', {
+          title,
+          poster: String(body.poster || ''),
+          content: String(body.content || body.body || ''),
+          excerpt: String(body.excerpt || ''),
+          views: Number(body.views || 0),
+          published_at: body.status === 'published' ? now : (body.published_at || null),
+          status: String(body.status || 'draft').toLowerCase(),
+          is_featured: body.is_featured ? 1 : 0,
+          author_id: body.author_id ? Number(body.author_id) : null,
+          created_at: now,
+          updated_at: now,
+        })
+
+        return cmsJson({ ok: true, post }, { status: 201 })
+      }
+
+      if (req.method === 'PATCH' && id) {
+        const body = await cmsBody(req)
+        const data: Record<string, any> = { updated_at: now }
+        for (const key of ['title', 'poster', 'content', 'excerpt', 'status', 'published_at']) {
+          if (body[key] !== undefined)
+            data[key] = key === 'status' ? String(body[key]).toLowerCase() : body[key]
+        }
+        if (body.views !== undefined) data.views = Number(body.views)
+        if (body.is_featured !== undefined) data.is_featured = body.is_featured ? 1 : 0
+
+        const post = await store.update('posts', id, data)
+        if (!post)
+          return cmsJson({ ok: false, error: 'Post not found' }, { status: 404 })
+
+        return cmsJson({ ok: true, post })
+      }
+
+      if (req.method === 'DELETE' && id) {
+        await store.delete('posts', id)
+        return cmsJson({ ok: true })
+      }
+    }
+
+    if (resource === 'tags' || resource === 'categories') {
+      const table = resource
+
+      if (req.method === 'POST') {
+        const body = await cmsBody(req)
+        const name = String(body.name || '').trim()
+        if (!name)
+          return cmsJson({ ok: false, error: 'Name is required' }, { status: 422 })
+
+        const values: Record<string, any> = {
+          name,
+          slug: String(body.slug || cmsSlug(name)),
+          description: String(body.description || ''),
+          created_at: now,
+          updated_at: now,
+        }
+        if (resource === 'categories')
+          values.is_active = body.is_active === undefined ? true : Boolean(body.is_active)
+        if (resource === 'tags') {
+          values.post_count = Number(body.post_count || 0)
+          values.color = String(body.color || '')
+        }
+
+        const row = await store.insert(table, values)
+
+        return cmsJson({ ok: true, [resource === 'categories' ? 'category' : 'tag']: row }, { status: 201 })
+      }
+
+      if (req.method === 'PATCH' && id) {
+        const body = await cmsBody(req)
+        const data: Record<string, any> = { updated_at: now }
+        for (const key of ['name', 'slug', 'description', 'color', 'image_url', 'parent_category_id']) {
+          if (body[key] !== undefined)
+            data[key] = body[key]
+        }
+        if (body.post_count !== undefined) data.post_count = Number(body.post_count)
+        if (body.display_order !== undefined) data.display_order = Number(body.display_order)
+        if (body.is_active !== undefined) data.is_active = body.is_active ? 1 : 0
+
+        const row = await store.update(table, id, data)
+        if (!row)
+          return cmsJson({ ok: false, error: `${resource === 'categories' ? 'Category' : 'Tag'} not found` }, { status: 404 })
+
+        return cmsJson({ ok: true, [resource === 'categories' ? 'category' : 'tag']: row })
+      }
+
+      if (req.method === 'DELETE' && id) {
+        await store.delete(table, id)
+        return cmsJson({ ok: true })
+      }
+    }
+
+    if (resource === 'pages') {
+      if (req.method === 'POST') {
+        const body = await cmsBody(req)
+        const title = String(body.title || '').trim()
+        if (!title)
+          return cmsJson({ ok: false, error: 'Title is required' }, { status: 422 })
+
+        const page = await store.insert('pages', {
+          title,
+          template: String(body.template || 'default'),
+          views: 0,
+          conversions: 0,
+          published_at: body.status === 'published' ? now : null,
+          author_id: body.author_id ? Number(body.author_id) : null,
+          created_at: now,
+          updated_at: now,
+        })
+
+        return cmsJson({ ok: true, page }, { status: 201 })
+      }
+
+      if (req.method === 'PATCH' && id) {
+        const body = await cmsBody(req)
+        const data: Record<string, any> = { updated_at: now }
+        for (const key of ['title', 'template', 'published_at']) {
+          if (body[key] !== undefined)
+            data[key] = body[key]
+        }
+        if (body.views !== undefined) data.views = Number(body.views)
+        if (body.conversions !== undefined) data.conversions = Number(body.conversions)
+        if (body.author_id !== undefined) data.author_id = body.author_id ? Number(body.author_id) : null
+
+        const page = await store.update('pages', id, data)
+        if (!page)
+          return cmsJson({ ok: false, error: 'Page not found' }, { status: 404 })
+
+        return cmsJson({ ok: true, page })
+      }
+
+      if (req.method === 'DELETE' && id) {
+        await store.delete('pages', id)
+        return cmsJson({ ok: true })
+      }
+    }
+
+    if (resource === 'authors') {
+      if (req.method === 'POST') {
+        const body = await cmsBody(req)
+        const name = String(body.name || '').trim()
+        const email = String(body.email || '').trim()
+        if (!name || !email)
+          return cmsJson({ ok: false, error: 'Name and email are required' }, { status: 422 })
+
+        const author = await store.insert('authors', {
+          name,
+          email,
+          created_at: now,
+          updated_at: now,
+        })
+
+        return cmsJson({ ok: true, author }, { status: 201 })
+      }
+
+      if (req.method === 'PATCH' && id) {
+        const body = await cmsBody(req)
+        const data: Record<string, any> = { updated_at: now }
+        for (const key of ['name', 'email']) {
+          if (body[key] !== undefined)
+            data[key] = body[key]
+        }
+        if (body.user_id !== undefined) data.user_id = body.user_id ? Number(body.user_id) : null
+
+        const author = await store.update('authors', id, data)
+        if (!author)
+          return cmsJson({ ok: false, error: 'Author not found' }, { status: 404 })
+
+        return cmsJson({ ok: true, author })
+      }
+
+      if (req.method === 'DELETE' && id) {
+        await store.delete('authors', id)
+        return cmsJson({ ok: true })
+      }
+    }
+
+    if (resource === 'comments') {
+      if (req.method === 'PATCH' && id) {
+        const body = await cmsBody(req)
+        const data: Record<string, any> = { updated_at: now }
+        if (body.content !== undefined) {
+          data.content = body.content
+          data.body = body.content
+        }
+        if (body.body !== undefined) {
+          data.content = body.body
+          data.body = body.body
+        }
+        for (const key of ['status', 'author_name', 'author_email', 'post_title']) {
+          if (body[key] !== undefined)
+            data[key] = body[key]
+        }
+        if (data.status === 'approved')
+          data.is_approved = 1
+        if (data.status && data.status !== 'approved')
+          data.is_approved = 0
+        const comment = await store.update('comments', id, data)
+        if (!comment)
+          return cmsJson({ ok: false, error: 'Comment not found' }, { status: 404 })
+
+        return cmsJson({ ok: true, comment })
+      }
+
+      if (req.method === 'DELETE' && id) {
+        await store.delete('comments', id)
+        return cmsJson({ ok: true })
+      }
+    }
+
+    return cmsJson({ ok: false, error: 'CMS endpoint not found' }, { status: 404 })
+  }
+  catch (error) {
+    return cmsJson({ ok: false, error: (error as Error)?.message || String(error) }, { status: 500 })
+  } finally {
+    store?.close?.()
+  }
+}
+
 async function startStxServer(): Promise<void> {
   // Preload @stacksjs/orm before the STX server starts. The orm package's
   // top-level evaluation walks every framework default model file, exports
@@ -282,15 +710,35 @@ async function startStxServer(): Promise<void> {
     routes: configRoutes,
     // onRequest fires BEFORE the `routes` map and BEFORE STX page
     // resolution. Returning a Response short-circuits the rest of the
-    // pipeline; returning null/undefined falls through. We narrowly
-    // delegate only `/api/dashboard/*` to the Stacks router so we don't
-    // accidentally swallow `/api/config/*` or `/__deps/*` (handled by
-    // `configRoutes`) or page paths (handled by STX).
+    // pipeline; returning null/undefined falls through.
+    //
+    // Delegation policy (dev dashboard):
+    //   1. `/api/config/*` and `/__deps/*` stay with `configRoutes` below
+    //      — those are dev-only static fixtures. Skip the Stacks router.
+    //   2. `/api/*` always delegates to the Stacks router. These are JSON
+    //      endpoints — bun-router's 404 (no route) and 405 (method
+    //      mismatch) are the right responses, never an HTML page.
+    //   3. For everything else, GET goes to STX (page rendering wins,
+    //      so `/health`, `/login`, `/content/authors`, etc. render their
+    //      `.stx` view) and non-GET goes to bun-router (so POST `/login`
+    //      reaches the action). Without rule (3a), root-level routes that
+    //      collide with a page — e.g. `route.health()` registering a
+    //      `/health` LB-probe at root — would intercept the page.
     onRequest: stacksRoute
       ? async (req: Request) => {
           const url = new URL(req.url)
-          if (!url.pathname.startsWith('/api/dashboard/')) return null
-          return stacksRoute!.handleRequest(req)
+          const pathname = url.pathname
+
+          if (pathname.startsWith('/api/config/') || pathname.startsWith('/__deps/'))
+            return null
+
+          if (pathname.startsWith('/api/'))
+            return stacksRoute!.handleRequest(req)
+
+          if (req.method.toUpperCase() !== 'GET')
+            return stacksRoute!.handleRequest(req)
+
+          return null
         }
       : undefined,
     auth: false,
@@ -435,6 +883,7 @@ async function loadDashboardToggles(): Promise<{
   analytics: boolean
   management: boolean
   utilities: boolean
+  ci: boolean
   data: DataRowToggles
 }> {
   const fallback = {
@@ -445,11 +894,14 @@ async function loadDashboardToggles(): Promise<{
     analytics: true,
     management: true,
     utilities: true,
+    // CI tracking is opt-in (stacksjs/stacks#1844) so it stays off when
+    // the project ships no dashboard.ts at all.
+    ci: false,
     data: { dashboard: true, activity: true, users: true, teams: true, subscribers: true, allModels: true } satisfies DataRowToggles,
   }
   try {
     type SectionMap = Record<string, { enabled?: boolean }> & { data?: Record<string, { enabled?: boolean }> }
-    const mod = await import(projectPath('config/dashboard.ts')) as { default?: { sections?: SectionMap } }
+    const mod = await import(projectPath('config/dashboard.ts')) as { default?: { sections?: SectionMap, ci?: { enabled?: boolean } } }
     const sections = mod.default?.sections ?? {}
     const data = sections.data ?? {}
     return {
@@ -460,6 +912,10 @@ async function loadDashboardToggles(): Promise<{
       analytics: sections.analytics?.enabled ?? true,
       management: sections.management?.enabled ?? true,
       utilities: sections.utilities?.enabled ?? true,
+      // ci lives at top level (it owns runtime config — orgs, runner caps —
+      // not just visibility) so its toggle reads from `mod.default.ci`,
+      // not from `sections.ci`.
+      ci: mod.default?.ci?.enabled ?? false,
       data: {
         dashboard: data.dashboard?.enabled ?? true,
         activity: data.activity?.enabled ?? true,
@@ -554,21 +1010,33 @@ if (verbose) {
 console.log()
 /* eslint-enable no-console */
 
-// Import @stacksjs/ts-craft dynamically. Its static import triggers bun-router
+// Import Craft dynamically. Its static import triggers bun-router
 // config loading which prints warnings before our console.log override is
 // active. We also let it be missing — the native window is a nicety, not a
 // requirement; the dashboard runs fine as a plain web server in that case.
-//
-// (Was previously imported as `@craft-native/ts` which is a stale package
-// name — the actual published package is `@stacksjs/ts-craft`, which exports
-// `createApp` with the same shape.)
 let createApp: ((_opts: any) => { show: () => Promise<void>, close: () => void }) | null = null
 try {
-  ;({ createApp } = await import('@stacksjs/ts-craft'))
+  const localCraftSdk = process.env.HOME
+    ? `${process.env.HOME}/Code/Tools/craft/packages/typescript/src/index.ts`
+    : undefined
+
+  ;({ createApp } = localCraftSdk && existsSync(localCraftSdk)
+    ? await import(localCraftSdk)
+    : await import('craft-native'))
 }
 catch {
-  // @stacksjs/ts-craft isn't installed (or its native bindings failed to
-  // load on this platform). Fall through to web-only mode below.
+  try {
+    ;({ createApp } = await import('@craft-native/craft'))
+  }
+  catch {
+    try {
+      ;({ createApp } = await import('@stacksjs/ts-craft'))
+    }
+    catch {
+      // The Craft SDK isn't installed (or its native bindings failed to
+      // load on this platform). Fall through to web-only mode below.
+    }
+  }
 }
 
 if (createApp) {
@@ -596,7 +1064,7 @@ if (createApp) {
   // `'craft'` from PATH. The fallback resolves to the ts-craft CLI shim,
   // not the actual native binary, so spawn never produces a window.
   //
-  // Honour `CRAFT_BIN` (matching the newer @craft-native/craft contract)
+  // Honour `CRAFT_BIN` (matching the newer craft-native contract)
   // and probe a couple of known monorepo locations relative to this
   // checkout so the local `~/Documents/Projects/craft` clone Just Works
   // without requiring an env var.
@@ -604,11 +1072,20 @@ if (createApp) {
     const explicit = process.env.CRAFT_BIN
     if (explicit) {
       // Explicit override — use it if it exists, otherwise skip native mode.
-      // Silently falling through to the home-relative probe would be
-      // surprising: the user named a path, so honour that decision.
+      // Silently falling through to the well-known probe paths below would
+      // be surprising: the user named a path, so honour that decision.
       // A non-existent CRAFT_BIN is also our test/headless escape hatch.
       return existsSync(explicit) ? explicit : undefined
     }
+    const codeTools = `${process.env.HOME}/Code/Tools/craft/craft`
+    if (existsSync(codeTools))
+      return codeTools
+    const codeToolsBin = `${process.env.HOME}/Code/Tools/craft/bin/craft`
+    if (existsSync(codeToolsBin))
+      return codeToolsBin
+    const codeToolsZig = `${process.env.HOME}/Code/Tools/craft/packages/zig/zig-out/bin/craft`
+    if (existsSync(codeToolsZig))
+      return codeToolsZig
     const homeRel = `${process.env.HOME}/Documents/Projects/craft/packages/zig/zig-out/bin/craft`
     if (existsSync(homeRel))
       return homeRel
@@ -616,15 +1093,20 @@ if (createApp) {
   })()
 
   // If we couldn't locate a real native binary, don't even attempt to spawn
-  // — ts-craft's `findCraftBinary()` PATH fallback resolves to its own CLI
-  // shim (the `craft` symlink that bun installs into ~/.bun/bin points back
-  // at @stacksjs/ts-craft's bin/cli.ts). That shim then re-receives our
+  // — old SDK `findCraftBinary()` PATH fallbacks can resolve to their own
+  // CLI shim. That shim then re-receives our
   // native-style flags (`--url ...`), clapp rejects them as unknown, and the
   // user sees a noisy "ClappError: Unknown option --url" before the process
   // exits. Skip native-window mode entirely instead and let the web fallback
   // below handle it.
   if (!craftBinaryPath) {
     createApp = null
+  }
+
+  if (!createApp) {
+    // eslint-disable-next-line no-console
+    console.log(`  ${dim('Native window unavailable. Set CRAFT_BIN to a craft binary, or open the URL above in a browser.')}\n`)
+    await new Promise(() => {})
   }
 
   const app = createApp({
@@ -672,7 +1154,7 @@ else {
   // exit cleanly without a window to close.
   //
   // We get here in two cases:
-  //   1. `@stacksjs/ts-craft` failed to import (catch above set createApp = null)
+  //   1. The Craft SDK failed to import (catch above set createApp = null)
   //   2. We couldn't find a real native craft binary (CRAFT_BIN unset and the
   //      `~/Documents/Projects/craft` checkout isn't present). In that case
   //      we deliberately skipped native mode to avoid spawning the ts-craft
