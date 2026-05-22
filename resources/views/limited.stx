@@ -1,0 +1,115 @@
+@extends('layouts/storefront')
+
+@section('title', 'Running low — PetStore')
+@section('description', 'Single-ingredient dehydrated dog treats with limited remaining stock. Once these batches sell through, the next is 2-3 weeks out.')
+
+<script server>
+const Database = require('bun:sqlite').Database
+const path = require('path')
+
+const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/pet-store.sqlite')
+const db = new Database(dbPath, { readonly: true })
+
+// Same srcset builder as products.stx — local in-file because
+// <script server> doesn't share module scope across stx pages and
+// the helper is small enough not to warrant a separate file.
+const PRODUCT_VARIANT_WIDTHS = [400, 600, 900]
+function productSrcset(imageUrl) {
+  const m = String(imageUrl || '').match(/^(\/images\/products\/[a-z0-9-]+)\.(jpe?g|png)$/i)
+  if (!m) return ''
+  return PRODUCT_VARIANT_WIDTHS.map(w => `${m[1]}-${w}.jpg ${w}w`).join(', ')
+}
+
+// Stock-pressured set: in-stock dogs treats with inventory below the
+// "Limited" threshold the rest of the storefront uses (<30). Ordered
+// by inventory_count ASC so the most-urgent shows first — matches the
+// page's promise to surface what's about to run out.
+const products = db.query(`
+  SELECT slug, name, ingredient, weight_grams, price, image_url, inventory_count
+  FROM products
+  WHERE is_available = 1 AND pet_species = 'dog'
+    AND inventory_count > 0 AND inventory_count < 30
+  ORDER BY inventory_count ASC, price ASC
+`).all().map((p) => {
+  const stock = Number(p.inventory_count) || 0
+  const isUrgent = stock > 0 && stock <= 5
+  return {
+    slug: p.slug,
+    name: p.name,
+    ingredient: p.ingredient,
+    weight: `${p.weight_grams}g`,
+    priceLabel: `$${Number(p.price).toFixed(2)}`,
+    image: p.image_url,
+    imageSrcset: productSrcset(p.image_url),
+    badge: isUrgent ? `Only ${stock} left` : 'Limited',
+    badgeVariant: isUrgent ? 'urgent' : 'soft',
+  }
+})
+
+// Headline copy switches when there's nothing in this state so the
+// page doesn't look broken on a fully-stocked day.
+const hasItems = products.length > 0
+</script>
+
+@section('content')
+  <div class="mx-auto max-w-6xl px-6 py-12">
+
+    <div class="max-w-2xl">
+      <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">
+        @if (hasItems)
+          Running low
+        @else
+          Fully stocked
+        @endif
+      </p>
+      <h1 class="mt-2 font-bold leading-tight text-4xl text-stone-900 tracking-tight md:text-5xl">
+        @if (hasItems)
+          The bowl is almost empty.
+        @else
+          Everything's in stock right now.
+        @endif
+      </h1>
+      <p class="mt-4 leading-relaxed text-stone-600">
+        @if (hasItems)
+          These cuts dropped recently and are already running through. Once a batch sells through, the next is usually 2-3 weeks out — single-ingredient, slow-dehydrated, can't be rushed.
+        @else
+          Every catalogue SKU has fresh stock. Restock-pressured items show up here as the queue moves — bookmark the page or
+          <a href="/" class="underline underline-offset-4 hover:text-stone-900">join the email list</a> to hear first when something's about to run.
+        @endif
+      </p>
+    </div>
+
+    @if (hasItems)
+      <div class="mt-10 grid gap-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        @foreach (products as p)
+          <ProductCard
+            slug="{{ p.slug }}"
+            name="{{ p.name }}"
+            priceLabel="{{ p.priceLabel }}"
+            image="{{ p.image }}"
+            imageSrcset="{{ p.imageSrcset }}"
+            ingredient="{{ p.ingredient }}"
+            weight="{{ p.weight }}"
+            badge="{{ p.badge }}"
+            badgeVariant="{{ p.badgeVariant }}"
+            speciesLabel="For dogs"
+          />
+        @endforeach
+      </div>
+    @else
+      <div class="mt-10 grid sm:grid-cols-2 gap-4">
+        <a href="/products" class="rounded-2xl border border-stone-200 p-6 hover:border-stone-900 transition-colors">
+          <p class="text-xs uppercase tracking-wider text-emerald-700 font-semibold">Shop</p>
+          <p class="mt-2 font-semibold text-stone-900">Browse the whole bowl</p>
+          <p class="mt-1 text-sm text-stone-500">Single-ingredient cuts, slow-dehydrated. For dogs.</p>
+        </a>
+        <a href="/about" class="rounded-2xl border border-stone-200 p-6 hover:border-stone-900 transition-colors">
+          <p class="text-xs uppercase tracking-wider text-emerald-700 font-semibold">About</p>
+          <p class="mt-2 font-semibold text-stone-900">How we source</p>
+          <p class="mt-1 text-sm text-stone-500">USDA-inspected only, third-party batch testing on every bag.</p>
+        </a>
+      </div>
+    @endif
+
+  </div>
+@endsection

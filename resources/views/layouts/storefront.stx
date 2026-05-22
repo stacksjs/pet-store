@@ -51,6 +51,7 @@ const footerColumns = [
     title: 'Shop',
     links: [
       { href: '/products', label: 'All treats' },
+      { href: '/limited', label: 'Running low' },
       { href: '/cart', label: 'Cart' },
     ],
   },
