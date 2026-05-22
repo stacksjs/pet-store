@@ -25,10 +25,32 @@ import type { UserModel } from '@stacksjs/orm'
  */
 export const gates = {
   /**
-   * Check if user can access admin area
+   * Check if a user can access the admin area.
+   *
+   * Driven by two env vars; either one matching is enough:
+   *   - ADMIN_EMAILS         comma-separated list of exact emails
+   *   - ADMIN_EMAIL_DOMAINS  comma-separated list of email domains
+   *                          (with or without leading `@`)
+   *
+   * Default is deny-all when neither is set — safer than carrying a
+   * hardcoded allowlist into every Stacks app that scaffolds from
+   * this default.
    */
   'access-admin': (user: UserModel | null) => {
-    return user?.email?.endsWith('@stacksjs.org') ?? false
+    const email = user?.email?.toLowerCase()
+    if (!email) return false
+
+    const explicit = (process.env.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean)
+    if (explicit.includes(email)) return true
+
+    const domains = (process.env.ADMIN_EMAIL_DOMAINS ?? '')
+      .split(',')
+      .map(s => s.trim().toLowerCase().replace(/^@/, ''))
+      .filter(Boolean)
+    return domains.some(domain => email.endsWith(`@${domain}`))
   },
 
   /**

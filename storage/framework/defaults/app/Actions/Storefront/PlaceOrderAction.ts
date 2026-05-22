@@ -81,16 +81,9 @@ export default new Action({
       [cart.shipping_city, cart.shipping_state, cart.shipping_zip].filter(Boolean).join(', '),
     ].filter(Boolean).join('\n')
 
-    // Unguessable order URL — the receipt page is shown to anyone with
-    // the link, so the link itself is the capability. Generated here
-    // because the raw query-builder insert below bypasses the Order
-    // model's `useUuid` hook.
-    const orderUuid = crypto.randomUUID()
-
     await (db as any)
       .insertInto('orders')
       .values({
-        uuid: orderUuid,
         customer_id: customer.id,
         status: 'paid',
         order_type: 'shipping',
@@ -99,9 +92,13 @@ export default new Action({
         delivery_address: fullAddress,
       })
       .execute()
+    // Re-read latest order for this customer — RETURNING * doesn't
+    // round-trip the row reliably on sqlite via bun-query-builder.
     const order = await (db as any)
       .selectFrom('orders')
-      .where('uuid', '=', orderUuid)
+      .where('customer_id', '=', customer.id)
+      .orderBy('id', 'desc')
+      .limit(1)
       .selectAll()
       .executeTakeFirst()
 
@@ -176,7 +173,7 @@ export default new Action({
       shipping,
       total,
       shippingAddress: fullAddress,
-      orderUrl: `${baseUrl}/orders/${order.uuid}`,
+      orderUrl: `${baseUrl}/orders/${order.id}`,
     }).catch((err: unknown) => {
       const message = err instanceof Error ? err.message : String(err)
       console.error(`[PlaceOrderAction] order receipt email failed for order #${order.id}:`, message)
@@ -185,12 +182,11 @@ export default new Action({
     const wantsHtml = (request.headers?.get?.('accept') || '').includes('text/html')
     const xhr = request.headers?.get?.('x-requested-with') === 'XMLHttpRequest'
     if (wantsHtml && !xhr)
-      return response.redirect(`/orders/${order.uuid}`)
+      return response.redirect(`/orders/${order.id}`)
 
     return response.json({
       ok: true,
       order_id: order.id,
-      order_uuid: order.uuid,
       total,
       subtotal,
       shipping,

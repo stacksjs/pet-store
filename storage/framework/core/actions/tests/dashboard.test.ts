@@ -218,6 +218,64 @@ describe('dashboard-utils', () => {
       expect(models[0].icon).toBe('creditcard.and.123')
       expect(models[0].id).toBe('payment-method')
     })
+
+    // ─── Per-model dashboard config loading (stacksjs/stacks#1843) ──────
+
+    it('reads the per-model dashboard config when the file exports one', async () => {
+      mkdirSync(testDir, { recursive: true })
+      writeFileSync(
+        join(testDir, 'AuditLog.ts'),
+        `export default {
+          name: 'AuditLog',
+          table: 'audit_logs',
+          dashboard: {
+            label: 'Audit Trail',
+            icon: 'shield.fill',
+            section: 'management',
+            roles: ['admin'],
+          },
+          attributes: {},
+        }`,
+      )
+
+      const models: Array<{ name: string, icon: string, id: string, dashboard?: any }> = []
+      await scanModelsDir(testDir, new Set(), models)
+
+      expect(models.length).toBe(1)
+      expect(models[0].dashboard).toBeDefined()
+      expect(models[0].dashboard.label).toBe('Audit Trail')
+      expect(models[0].dashboard.section).toBe('management')
+      expect(models[0].dashboard.roles).toEqual(['admin'])
+      // dashboard.icon should win over the auto-derived icon
+      expect(models[0].icon).toBe('shield.fill')
+    })
+
+    it('falls back to filename-only metadata when a model file fails to import', async () => {
+      mkdirSync(testDir, { recursive: true })
+      // Syntax error — import throws, helper must swallow and return undefined.
+      writeFileSync(join(testDir, 'Broken.ts'), 'this is not valid typescript {{{ }}}')
+
+      const models: Array<{ name: string, icon: string, id: string, dashboard?: any }> = []
+      await scanModelsDir(testDir, new Set(), models)
+
+      expect(models.length).toBe(1)
+      expect(models[0].name).toBe('Broken')
+      expect(models[0].dashboard).toBeUndefined()
+    })
+
+    it('leaves dashboard undefined for models without a dashboard field', async () => {
+      mkdirSync(testDir, { recursive: true })
+      writeFileSync(join(testDir, 'Plain.ts'), `export default {
+        name: 'Plain',
+        table: 'plains',
+        attributes: {},
+      }`)
+
+      const models: Array<{ name: string, icon: string, id: string, dashboard?: any }> = []
+      await scanModelsDir(testDir, new Set(), models)
+
+      expect(models[0].dashboard).toBeUndefined()
+    })
   })
 
   describe('discoverModels', () => {
@@ -337,7 +395,7 @@ describe('dashboard-utils', () => {
       const modelItems = dataSection.items.filter(i => i.id.startsWith('model-'))
       expect(modelItems.length).toBe(2)
       expect(modelItems.find(i => i.id === 'model-widget')!.label).toBe('Widget')
-      expect(modelItems.find(i => i.id === 'model-widget')!.url).toBe('http://localhost:3456/pages/data/widget')
+      expect(modelItems.find(i => i.id === 'model-widget')!.url).toBe('http://localhost:3456/pages/models/widget')
       expect(modelItems.find(i => i.id === 'model-gadget')).toBeDefined()
     })
 
@@ -358,10 +416,9 @@ describe('dashboard-utils', () => {
       expect(commerceModelIds).toContain('model-cart')
 
       // Even though Cart visually lives under Commerce, its URL must point
-      // at /data/<id> — there is no /commerce/[model] catch-all, so any
-      // other route would 404.
+      // at /models/<id> — that's the dashboard's dynamic ORM viewer.
       const cartItem = commerceSection.items.find(i => i.id === 'model-cart')!
-      expect(cartItem.url).toBe('http://localhost:3456/pages/data/cart')
+      expect(cartItem.url).toBe('http://localhost:3456/pages/models/cart')
     })
 
     it('should drop the commerce section when disabled', () => {
@@ -399,11 +456,83 @@ describe('dashboard-utils', () => {
       expect(homeSection.items[0].icon).toBe('house.fill')
     })
 
+    it('omits the CI row by default (stacksjs/stacks#1844 — opt-in)', () => {
+      const config = buildSidebarConfig('http://localhost:3456/pages', [])
+      const homeSection = config.sections.find(s => s.id === 'home')!
+      expect(homeSection.items.some(i => i.id === 'ci')).toBe(false)
+    })
+
+    it('appends a CI row to the home section when toggles.ci is true', () => {
+      const config = buildSidebarConfig('http://localhost:3456/pages', [], { ci: true })
+      const homeSection = config.sections.find(s => s.id === 'home')!
+      const ci = homeSection.items.find(i => i.id === 'ci')
+      expect(ci).toBeDefined()
+      expect(ci!.url).toBe('http://localhost:3456/pages/ci')
+    })
+
+    // ─── Per-model dashboard config (stacksjs/stacks#1843) ─────────────
+
+    it('hides models whose dashboard.enabled is false', () => {
+      const models = [
+        { name: 'Widget', icon: 'tablecells.fill', id: 'widget', category: 'userland' as const },
+        { name: 'Secret', icon: 'tablecells.fill', id: 'secret', category: 'userland' as const, dashboard: { enabled: false } },
+      ]
+      const config = buildSidebarConfig('http://localhost:3456/pages', models)
+      const dataSection = config.sections.find(s => s.id === 'data')!
+      expect(dataSection.items.find(i => i.id === 'model-widget')).toBeDefined()
+      expect(dataSection.items.find(i => i.id === 'model-secret')).toBeUndefined()
+    })
+
+    it('honours dashboard.label as the sidebar display name', () => {
+      const models = [
+        { name: 'AuditLog', icon: 'tablecells.fill', id: 'audit-log', category: 'userland' as const, dashboard: { label: 'Audit Trail' } },
+      ]
+      const config = buildSidebarConfig('http://localhost:3456/pages', models)
+      const dataSection = config.sections.find(s => s.id === 'data')!
+      const row = dataSection.items.find(i => i.id === 'model-audit-log')
+      expect(row).toBeDefined()
+      expect(row!.label).toBe('Audit Trail')
+    })
+
+    it('pins a userland model to a different section via dashboard.section', () => {
+      const models = [
+        { name: 'AuditLog', icon: 'tablecells.fill', id: 'audit-log', category: 'userland' as const, dashboard: { section: 'management' as const } },
+      ]
+      const config = buildSidebarConfig('http://localhost:3456/pages', models)
+
+      const dataSection = config.sections.find(s => s.id === 'data')!
+      expect(dataSection.items.find(i => i.id === 'model-audit-log')).toBeUndefined()
+      // No `management` section currently builds dynamic model rows out
+      // of the box (the management section is static); but the model
+      // should no longer leak into Data.
+    })
+
+    it('passes through dashboard.roles as item metadata for role gating', () => {
+      const models = [
+        { name: 'AuditLog', icon: 'tablecells.fill', id: 'audit-log', category: 'userland' as const, dashboard: { roles: ['admin', 'dev'] } },
+      ]
+      const config = buildSidebarConfig('http://localhost:3456/pages', models)
+      const dataSection = config.sections.find(s => s.id === 'data')!
+      const row = dataSection.items.find(i => i.id === 'model-audit-log') as { id: string, label: string, icon: string, url: string, roles?: string[] }
+      expect(row).toBeDefined()
+      expect(row.roles).toEqual(['admin', 'dev'])
+    })
+
+    it('omits the roles property entirely when no roles are configured', () => {
+      const models = [
+        { name: 'Widget', icon: 'tablecells.fill', id: 'widget', category: 'userland' as const },
+      ]
+      const config = buildSidebarConfig('http://localhost:3456/pages', models)
+      const dataSection = config.sections.find(s => s.id === 'data')!
+      const row = dataSection.items.find(i => i.id === 'model-widget') as { id: string, roles?: string[] }
+      expect(row.roles).toBeUndefined()
+    })
+
     it('should have correct items in each section', () => {
       const config = buildSidebarConfig('http://localhost:3456/pages', [])
 
       const library = config.sections.find(s => s.id === 'library')!
-      expect(library.items.length).toBe(3)
+      expect(library.items.length).toBe(2)
 
       const commerce = config.sections.find(s => s.id === 'commerce')!
       expect(commerce.items.length).toBe(9)
@@ -416,7 +545,7 @@ describe('dashboard-utils', () => {
   describe('buildDashboardUrl', () => {
     it('should include native-sidebar parameter', () => {
       const url = buildDashboardUrl(3456)
-      expect(url).toBe('http://localhost:3456/app?native-sidebar=1')
+      expect(url).toBe('http://localhost:3456/?native-sidebar=1')
     })
 
     it('should use the specified port', () => {
@@ -424,9 +553,9 @@ describe('dashboard-utils', () => {
       expect(url).toContain(':8080/')
     })
 
-    it('should always include /app path', () => {
+    it('should open the dashboard root path', () => {
       const url = buildDashboardUrl(3456)
-      expect(url).toContain('/app?')
+      expect(url).toContain('/?native-sidebar=1')
     })
   })
 

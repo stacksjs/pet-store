@@ -5,8 +5,8 @@
  * configured using the stacks database config.
  */
 
-import type { DatabaseSchema } from 'bun-query-builder'
-import { createQueryBuilder, setConfig } from 'bun-query-builder'
+import type { DatabaseSchema } from '@stacksjs/query-builder'
+import { createQueryBuilder, setConfig } from '@stacksjs/query-builder'
 
 // Permissive schema type that accepts any table name with any columns
 // This allows the query builder to work before model types are generated
@@ -185,6 +185,10 @@ function ensureConfigLoaded(): Promise<void> {
   }
 
   return _configInitPromise
+}
+
+export async function ensureDatabaseConfigLoaded(): Promise<void> {
+  await ensureConfigLoaded()
 }
 
 function getDb(): ReturnType<typeof createQueryBuilder> {

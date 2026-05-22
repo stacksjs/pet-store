@@ -30,7 +30,7 @@ import {
   resetConnection,
   resetDatabase as qbResetDatabase,
   setConfig,
-} from 'bun-query-builder'
+} from '@stacksjs/query-builder'
 import { db } from './utils'
 
 // Use environment variables via @stacksjs/env for proper type coercion
@@ -73,6 +73,16 @@ function configureQueryBuilder(): void {
 
   setConfig({
     dialect,
+    // bun-query-builder defaults to `verbose: true`, which dumps an
+    // unconditional wall of `-- Comparing with stored snapshot`,
+    // `-- Found N script files`, `-- Migrations table ready` etc. to
+    // stdout on every `buddy migrate` (including no-op re-runs). Stacks
+    // surfaces its own progress via the buddy CLI's intro/outro pair,
+    // so silence the library chatter by default. Users can flip this
+    // back via `setConfig({ verbose: true })` from their own config or
+    // by exporting `STACKS_QB_VERBOSE=1` (intentionally not wired yet —
+    // add it if a real debugging need shows up).
+    verbose: false,
     database: {
       database: connectionConfig?.name || connectionConfig?.database || 'stacks',
       host: connectionConfig?.host || 'localhost',
@@ -84,6 +94,11 @@ function configureQueryBuilder(): void {
 
   // Reset the connection to ensure the new config is used
   resetConnection()
+}
+
+function prepareMigrationModelsDir(): { modelsDir: string, skip: boolean } {
+  const userModelsDir = path.userModelsPath()
+  return { modelsDir: userModelsDir, skip: !existsSync(userModelsDir) }
 }
 
 /**
@@ -372,12 +387,85 @@ async function ensureDatabaseExists(): Promise<void> {
 }
 
 /**
+ * Skip migrations owned by features whose `config.<feature>.enabled` is
+ * false (stacksjs/stacks#1854). Pre-flight pass that hides
+ * `database/migrations/<owned>.sql` → `<owned>.sql.disabled` for the
+ * duration of the run. Restored in a `finally` so a crash mid-migration
+ * still leaves the directory clean. Returns the list of paths that
+ * were hidden so the caller can log them.
+ *
+ * Lives here (not in `@stacksjs/buddy`) so the migration runner can
+ * import it without a dependency cycle. Stays a no-op when the
+ * feature manifest / config can't be resolved — defensive, since the
+ * runner is also called from non-CLI contexts (tests, programmatic
+ * migrations) where one or the other might not be initialised.
+ */
+async function hideDisabledFeatureMigrations(): Promise<Array<{ original: string, hidden: string, feature: string }>> {
+  const hidden: Array<{ original: string, hidden: string, feature: string }> = []
+  try {
+    const { FEATURE_NAMES, migrationFeature } = await import('@stacksjs/buddy')
+    const { feature: isFeatureEnabled } = await import('@stacksjs/config')
+    const fs = await import('node:fs/promises')
+
+    const migrationsDir = path.projectPath('database/migrations')
+    if (!existsSync(migrationsDir)) return hidden
+
+    const disabledFeatures = new Set(
+      (FEATURE_NAMES as readonly string[]).filter((f: string) => !(isFeatureEnabled as (name: string) => boolean)(f)),
+    )
+    if (disabledFeatures.size === 0) return hidden
+
+    const files = readdirSync(migrationsDir).filter(f => f.endsWith('.sql'))
+    for (const file of files) {
+      const owner = (migrationFeature as (filename: string) => string | null)(file)
+      if (!owner || !disabledFeatures.has(owner)) continue
+      const original = join(migrationsDir, file)
+      const hiddenPath = `${original}.disabled`
+      await fs.rename(original, hiddenPath)
+      hidden.push({ original, hidden: hiddenPath, feature: owner })
+    }
+
+    if (hidden.length > 0) {
+      const summary = Object.entries(
+        hidden.reduce<Record<string, number>>((acc, h) => {
+          acc[h.feature] = (acc[h.feature] ?? 0) + 1
+          return acc
+        }, {}),
+      )
+        .map(([f, n]) => `${f}: ${n}`)
+        .join(', ')
+      log.info(`[migration] Skipping ${hidden.length} migration(s) for disabled features (${summary}). Run \`./buddy <feature>:install\` to enable.`)
+    }
+  }
+  catch {
+    // `@stacksjs/buddy` / `@stacksjs/config` may not resolve cleanly in
+    // every embedding (notably bare tests). The gate is best-effort —
+    // a missing manifest doesn't block migrations from running.
+  }
+  return hidden
+}
+
+async function restoreHiddenMigrations(hidden: Array<{ original: string, hidden: string, feature: string }>): Promise<void> {
+  const fs = await import('node:fs/promises')
+  for (const { original, hidden: h } of hidden) {
+    try { await fs.rename(h, original) }
+    catch { /* best-effort restore; another invocation may have already swept */ }
+  }
+}
+
+/**
  * Run database migrations
  */
 export async function runDatabaseMigration(): Promise<Result<string, Error>> {
   const startedAt = Date.now()
+  const hidden = await hideDisabledFeatureMigrations()
   try {
-    log.info('Migrating database...')
+    // Step-progress logs stay at debug. On a no-op run (the common case
+    // when the user re-issues `buddy migrate` against a clean DB) we
+    // want a clean intro→outro pair from the buddy CLI, not a wall of
+    // "Migrating database... / Database migration completed" lines
+    // that duplicate what the outro already prints with timing.
+    log.debug('Migrating database...')
 
     // Ensure the database exists before running migrations (PostgreSQL/MySQL)
     await ensureDatabaseExists()
@@ -396,7 +484,7 @@ export async function runDatabaseMigration(): Promise<Result<string, Error>> {
     log.debug(`[migration] Running migrations from: ${modelsDir}`)
     await qbExecuteMigration(modelsDir)
 
-    log.success(`Database migration completed in ${Date.now() - startedAt}ms.`)
+    log.debug(`Database migration completed in ${Date.now() - startedAt}ms.`)
     return ok('Database migration completed.')
   }
   catch (error) {
@@ -408,6 +496,9 @@ export async function runDatabaseMigration(): Promise<Result<string, Error>> {
     log.error(`[migration] Failed after ${Date.now() - startedAt}ms: ${detail}`)
     log.info('[migration] Run `./buddy migrate:fresh` to drop and recreate the schema if state is partial.')
     return err(handleError('Migration failed', error))
+  }
+  finally {
+    await restoreHiddenMigrations(hidden)
   }
 }
 
@@ -539,26 +630,38 @@ async function dropFrameworkTables(dialect: 'sqlite' | 'mysql' | 'postgres'): Pr
  */
 export async function generateMigrations(): Promise<Result<string, Error>> {
   try {
-    log.info('Generating migrations...')
+    // Step-progress at debug — buddy's intro/outro carries the user-
+    // visible signal. On a no-op generate we want zero lines between
+    // those two; on a real generate the per-file written count below
+    // is the meaningful breadcrumb.
+    log.debug('Generating migrations...')
 
     // Configure bun-query-builder with stacks database settings
     configureQueryBuilder()
 
-    const modelsDir = path.userModelsPath()
     const dialect = getDialect()
+    const { modelsDir, skip } = prepareMigrationModelsDir()
+    if (skip) {
+      log.debug('No app/Models directory found; using committed framework migrations')
+      return ok('Migrations generated')
+    }
 
     log.debug(`[migration] Generating migrations for dialect: ${dialect}, models: ${modelsDir}`)
     const result = await qbGenerateMigration(modelsDir, { dialect })
 
     if (result.hasChanges) {
       const written = persistGeneratedMigrations(result.sqlStatements ?? [])
+      // Only announce when we actually wrote files. `hasChanges` can be
+      // true while `written === 0` if the qb diff restated statements
+      // already covered by committed migrations — that's a no-op from
+      // the user's perspective, so stay quiet.
       if (written > 0)
-        log.success(`Migrations generated (${written} file${written === 1 ? '' : 's'})`)
+        log.success(`Generated ${written} migration file${written === 1 ? '' : 's'}`)
       else
-        log.success('Migrations generated')
+        log.debug('Migration generation produced no new files (already up to date)')
     }
     else {
-      log.info('No changes detected')
+      log.debug('No changes detected')
     }
 
     return ok('Migrations generated')
@@ -659,7 +762,7 @@ function nextMigrationNumber(migrationsDir: string): number {
   try {
     for (const f of readdirSync(migrationsDir)) {
       const m = f.match(/^(\d+)-/)
-      if (m) max = Math.max(max, Number.parseInt(m[1], 10))
+      if (m?.[1]) max = Math.max(max, Number.parseInt(m[1], 10))
     }
   }
   catch { /* directory missing — start at 1 */ }
@@ -676,8 +779,12 @@ export async function generateMigrations2(): Promise<Result<string, Error>> {
     // Configure bun-query-builder with stacks database settings
     configureQueryBuilder()
 
-    const modelsDir = path.userModelsPath()
     const dialect = getDialect()
+    const { modelsDir, skip } = prepareMigrationModelsDir()
+    if (skip) {
+      log.info('No app/Models directory found; using committed framework migrations')
+      return ok('Migrations generated')
+    }
 
     await qbGenerateMigration(modelsDir, { dialect, full: true })
 

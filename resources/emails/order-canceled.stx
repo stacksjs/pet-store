@@ -1,0 +1,79 @@
+<script server>
+const orderId = props.orderId || ''
+const orderUrl = props.orderUrl || '#'
+const customerName = props.customerName || 'there'
+const reason = props.reason || ''
+const refundAmount = Number(props.refundAmount || 0)
+const appName = props.appName || 'PetStore'
+const year = props.year || new Date().getFullYear()
+
+function fmt(n) { return '$' + Number(n).toFixed(2) }
+</script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your order was canceled — {{ appName }}</title>
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background-color:#f5f5f4;line-height:1.6;color:#1c1917;">
+  <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">
+    <tr>
+      <td style="padding:40px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;">
+
+          <tr>
+            <td style="padding:32px 32px 24px;border-bottom:1px solid #e7e5e4;">
+              <p style="margin:0 0 4px;color:#78716c;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">{{ appName }}</p>
+              <h1 style="margin:0;color:#1c1917;font-size:24px;font-weight:700;letter-spacing:-0.01em;">Your order was canceled.</h1>
+              <p style="margin:8px 0 0;color:#57534e;font-size:14px;">Order <strong style="color:#1c1917;">#{{ orderId }}</strong></p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:24px 32px;">
+              <p style="margin:0 0 16px;color:#1c1917;font-size:15px;">Hi {{ customerName }},</p>
+              <p style="margin:0 0 16px;color:#57534e;font-size:15px;">
+                We've canceled order <strong>#{{ orderId }}</strong>. {{ reason ? `Reason: ${reason}.` : '' }}
+              </p>
+
+              @if (refundAmount > 0)
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:24px 0 0;background-color:#fafaf9;border-radius:8px;">
+                  <tr>
+                    <td style="padding:20px;">
+                      <p style="margin:0 0 4px;color:#78716c;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;">Refund</p>
+                      <p style="margin:0;color:#1c1917;font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;">{{ fmt(refundAmount) }}</p>
+                      <p style="margin:8px 0 0;color:#57534e;font-size:13px;">Should land back on your card in 5–10 business days. Bank timing varies.</p>
+                    </td>
+                  </tr>
+                </table>
+              @endif
+
+              <p style="margin:24px 0 0;color:#57534e;font-size:14px;">
+                If this was a mistake — or if you'd like to reorder when stock is back — just reply to this email. We're a small team and we read every one.
+              </p>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 0;">
+                <tr>
+                  <td>
+                    <a href="{{ orderUrl }}" style="display:inline-block;background-color:#1c1917;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:9999px;font-size:14px;font-weight:600;">View order details</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:24px 32px;border-top:1px solid #e7e5e4;background-color:#fafaf9;">
+              <p style="margin:0;color:#78716c;font-size:13px;">Sorry it didn't work out this time — we'd love a second shot whenever you're ready.</p>
+            </td>
+          </tr>
+
+        </table>
+
+        <p style="text-align:center;color:#a8a29e;font-size:11px;margin:24px 0 0;">&copy; {{ year }} {{ appName }}.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

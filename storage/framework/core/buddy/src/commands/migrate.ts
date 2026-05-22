@@ -146,7 +146,11 @@ export function migrate(buddy: CLI): void {
 
       // Auth/oauth tables migrate by default. Pass --no-auth to opt out.
       if (options.auth !== false) {
-        log.info('Migrating auth tables...')
+        // Step-progress at debug — the auth-tables SQL is all
+        // `CREATE TABLE IF NOT EXISTS`, so re-runs are no-ops and the
+        // user shouldn't see an "ℹ Migrating auth tables..." line
+        // every time. Errors still surface via log.error below.
+        log.debug('Migrating auth tables...')
         try {
           const { migrateAuthTables } = await import('@stacksjs/database')
           const authResult = await migrateAuthTables({ verbose: options.verbose })
@@ -203,7 +207,11 @@ export function migrate(buddy: CLI): void {
 
       // Auth/oauth tables migrate by default. Pass --no-auth to opt out.
       if (options.auth !== false) {
-        log.info('Migrating auth tables...')
+        // Step-progress at debug — the auth-tables SQL is all
+        // `CREATE TABLE IF NOT EXISTS`, so re-runs are no-ops and the
+        // user shouldn't see an "ℹ Migrating auth tables..." line
+        // every time. Errors still surface via log.error below.
+        log.debug('Migrating auth tables...')
         try {
           const { migrateAuthTables } = await import('@stacksjs/database')
           const authResult = await migrateAuthTables({ verbose: options.verbose })
@@ -217,13 +225,17 @@ export function migrate(buddy: CLI): void {
         }
       }
 
-      // Run seeders if --seed flag is provided
+      // Run seeders if --seed flag is provided.
+      //
+      // `migrate:fresh` truncates the database, so passing `fresh: true`
+      // to the seeder here lifts the protected-model guard
+      // (stacksjs/stacks#1852) — there are no live tokens to invalidate.
       if (options.seed) {
         log.info('Running database seeders...')
         try {
           // Import seed dynamically to avoid circular deps and ensure db is initialized
           const { seed } = await import('@stacksjs/database')
-          const seedResult = await seed({ verbose: options.verbose })
+          const seedResult = await seed({ verbose: options.verbose, fresh: true })
 
           if (seedResult.failed > 0) {
             log.warn(`Seeding completed with ${seedResult.failed} failure(s)`)
