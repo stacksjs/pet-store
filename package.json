@@ -69,12 +69,12 @@
     "sqlite": "^3.47.2"
   },
   "dependencies": {
-    "@stacksjs/stx": "^0.2.50",
+    "@stacksjs/stx": "^0.2.66",
     "stacks": "workspace:*"
   },
   "devDependencies": {
-    "better-dx": "^0.2.12",
-    "ts-images": "^0.1.7"
+    "better-dx": "^0.2.15",
+    "ts-images": "^0.1.8"
   },
   "workspaces": [
     "storage/framework/**"
