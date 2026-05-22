@@ -12,7 +12,7 @@ const productSlug = (typeof slug !== 'undefined' && slug) || ''
 const row = productSlug ? db.query(`
   SELECT id, slug, name, description, tagline, ingredient, pet_species AS species,
          weight_grams, price, image_url, sourced_from, guaranteed_analysis,
-         inventory_count
+         inventory_count, category_id
   FROM products
   WHERE slug = ?1 AND is_available = 1 AND pet_species = 'dog'
   LIMIT 1
@@ -89,11 +89,57 @@ const heroImage = product ? product.image : ''
 // scripts/optimize-product-images.ts. Empty string when the URL doesn't
 // match (e.g. third-party CDN); ProductGallery falls back to plain src.
 const PRODUCT_VARIANT_WIDTHS = [400, 600, 900]
-const heroImageSrcset = (() => {
-  const m = String(heroImage).match(/^(\/images\/products\/[a-z0-9-]+)\.(jpe?g|png)$/i)
+function productSrcset(imageUrl) {
+  const m = String(imageUrl || '').match(/^(\/images\/products\/[a-z0-9-]+)\.(jpe?g|png)$/i)
   if (!m) return ''
   return PRODUCT_VARIANT_WIDTHS.map(w => `${m[1]}-${w}.jpg ${w}w`).join(', ')
-})()
+}
+const heroImageSrcset = productSrcset(heroImage)
+
+// "You may also like" — pull three other in-stock dogs treats. Prefer
+// the same category for cross-sell coherence ("more like this"), and
+// fall back to a price-ordered grab when the current product has no
+// category set so the slot never renders empty. Excludes the current
+// product so the shopper isn't recommended what they're already on.
+//
+// Kept inline rather than abstracted into a function so the script
+// stays grep-able — every other view on the storefront fetches
+// directly via db.query() the same way.
+const relatedRows = (row && row.category_id != null)
+  ? db.query(`
+      SELECT slug, name, ingredient, weight_grams, price, image_url, inventory_count
+      FROM products
+      WHERE is_available = 1 AND pet_species = 'dog'
+        AND id != ?1 AND category_id = ?2
+      ORDER BY price ASC
+      LIMIT 3
+    `).all(row.id, row.category_id)
+  : (row ? db.query(`
+      SELECT slug, name, ingredient, weight_grams, price, image_url, inventory_count
+      FROM products
+      WHERE is_available = 1 AND pet_species = 'dog' AND id != ?1
+      ORDER BY price ASC
+      LIMIT 3
+    `).all(row.id) : [])
+
+const related = relatedRows.map((p) => {
+  // Same urgency tier rule as the catalogue grid — keep in sync with
+  // resources/views/products.stx + index.stx.
+  const stock = Number(p.inventory_count) || 0
+  const isUrgent = stock > 0 && stock <= 5
+  const isLimited = stock > 0 && stock < 30
+  return {
+    slug: p.slug,
+    name: p.name,
+    ingredient: p.ingredient,
+    weight: `${p.weight_grams}g`,
+    priceLabel: `$${Number(p.price).toFixed(2)}`,
+    image: p.image_url,
+    imageSrcset: productSrcset(p.image_url),
+    badge: isUrgent ? `Only ${stock} left` : (isLimited ? 'Limited' : ''),
+    badgeVariant: isUrgent ? 'urgent' : 'soft',
+  }
+})
 
 // Per-page SEO. Dynamic title/description that include the product name +
 // price + tagline so the social card and search snippet are useful.
@@ -289,6 +335,39 @@ const productSchema = product ? JSON.stringify({
           </div>
         </div>
       </div>
+
+      @if (related.length > 0)
+        {{-- Cross-sell rail. Shows up between the main product info
+             and the reviews block so the shopper hits it on the way
+             down — close enough to the add-to-cart that they can
+             swap if they want, far enough that it doesn't compete
+             with the buying decision above. --}}
+        <section class="mt-20">
+          <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">You may also like</p>
+              <h2 class="mt-2 font-bold text-3xl text-stone-900 tracking-tight md:text-4xl">More from the bowl.</h2>
+            </div>
+            <a href="/products" class="font-medium text-sm text-stone-700 hover:text-stone-900 underline-offset-4 hover:underline">Browse all →</a>
+          </div>
+          <div class="mt-8 grid gap-5 grid-cols-2 md:grid-cols-3">
+            @foreach (related as p)
+              <ProductCard
+                slug="{{ p.slug }}"
+                name="{{ p.name }}"
+                priceLabel="{{ p.priceLabel }}"
+                image="{{ p.image }}"
+                imageSrcset="{{ p.imageSrcset }}"
+                ingredient="{{ p.ingredient }}"
+                weight="{{ p.weight }}"
+                badge="{{ p.badge }}"
+                badgeVariant="{{ p.badgeVariant }}"
+                speciesLabel="For dogs"
+              />
+            @endforeach
+          </div>
+        </section>
+      @endif
 
       @if (reviews.length > 0)
         <section id="reviews" class="mt-20 max-w-3xl">
