@@ -68,6 +68,21 @@ const totalLabel = `$${total.toFixed(2)}`
 const freeShippingNote = (shipping > 0 && remainingForFree > 0)
   ? `Add $${remainingForFree.toFixed(2)} more for free shipping.`
   : ''
+
+// Free-shipping progress shown above the line items. The OrderSummary
+// component already surfaces the same number as a one-liner; this
+// duplicates the message at the top with a visual bar because shoppers
+// reliably miss the sidebar note (sticky right column, easy to scan
+// past). Bar width is capped at 100% even when the cart is already
+// over the threshold so the "unlocked" state can't push the fill past
+// its container.
+const freeShippingProgress = items.length > 0
+  ? Math.min(100, Math.max(0, (subtotal / FREE_SHIPPING_THRESHOLD) * 100))
+  : 0
+const freeShippingUnlocked = items.length > 0 && subtotal >= FREE_SHIPPING_THRESHOLD
+const freeShippingHeadline = freeShippingUnlocked
+  ? 'Free shipping unlocked — your bowl ships on us.'
+  : (items.length > 0 ? `Add $${remainingForFree.toFixed(2)} more to unlock free shipping.` : '')
 </script>
 
 @section('content')
@@ -90,7 +105,26 @@ const freeShippingNote = (shipping > 0 && remainingForFree > 0)
         </a>
       </div>
     @else
-      <div class="grid gap-10 items-start lg:gap-12 lg:grid-cols-[2fr_1fr] mt-10">
+      {{-- Free-shipping progress banner. Above the items so it's the
+           first thing the shopper sees on /cart; the OrderSummary
+           sidebar carries the same line as a one-liner near the CTA. --}}
+      <div class="mt-8 p-5 bg-stone-50 border border-stone-200 rounded-2xl">
+        <div class="flex gap-3 items-center">
+          <span aria-hidden="true" class="inline-flex flex-shrink-0 items-center justify-center h-9 w-9 bg-white border border-stone-200 rounded-full">
+            @if (freeShippingUnlocked)
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+            @else
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-stone-600" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m0 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0M3 4.5h6.75A1.5 1.5 0 0111.25 6v9m0 0h7.5a1.5 1.5 0 001.5-1.5V9.75a1.5 1.5 0 00-.44-1.06l-2.25-2.25a1.5 1.5 0 00-1.06-.44H14.25m-3 9h-6" /></svg>
+            @endif
+          </span>
+          <p class="flex-1 font-medium text-sm text-stone-900">{{ freeShippingHeadline }}</p>
+        </div>
+        <div class="mt-3 h-2 w-full bg-stone-200 rounded-full overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ Math.round(freeShippingProgress) }}" aria-label="Free shipping progress">
+          <div class="h-full {{ freeShippingUnlocked ? 'bg-emerald-500' : 'bg-stone-900' }} transition-all duration-300" style="width: {{ freeShippingProgress }}%"></div>
+        </div>
+      </div>
+
+      <div class="grid gap-10 items-start lg:gap-12 lg:grid-cols-[2fr_1fr] mt-8">
 
         <div class="space-y-4">
           @foreach (items as item)
