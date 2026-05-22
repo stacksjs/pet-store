@@ -39,6 +39,24 @@ try {
 }
 catch { /* leave count at 0 / signed-in false */ }
 
+// Canonical URL for the current request. SEO duplicate-content
+// prevention + correct og:url on social previews. Read from
+// requestContext.url() which contains the exact request URL the
+// browser hit; normalize to https + APP_URL host so dev (localhost,
+// stacks.localhost) and prod (the real domain) both produce a stable
+// canonical that crawlers see consistently.
+let canonicalUrl = ''
+try {
+  const reqUrl = (typeof requestContext !== 'undefined') ? requestContext.url() : ''
+  const appUrl = String(process.env.APP_URL || '').trim().replace(/\/$/, '')
+  if (reqUrl) {
+    const parsed = new URL(reqUrl, 'http://localhost')
+    const host = appUrl ? appUrl.replace(/^https?:\/\//, '') : parsed.host
+    canonicalUrl = `https://${host}${parsed.pathname}`
+  }
+}
+catch { /* leave canonicalUrl empty — meta tag stays unset */ }
+
 const headerLinks = [
   { href: '/products', label: 'Shop' },
   { href: '/about', label: 'About' },
@@ -97,11 +115,17 @@ const footerColumns = [
       at /images/og.jpg — see public/images/og.jpg; storefront pages
       can override with @section('og_image', '…') for product-specific
       cards. --}}
+  @if (canonicalUrl)
+    <link rel="canonical" href="{{ canonicalUrl }}">
+  @endif
   <meta property="og:type" content="@yield('og_type', 'website')">
   <meta property="og:site_name" content="PetStore">
   <meta property="og:title" content="@yield('title', 'PetStore — Real food for real dogs.')">
   <meta property="og:description" content="@yield('description', 'Single-ingredient, human-grade pet food. Traceable from farm to bowl.')">
   <meta property="og:image" content="@yield('og_image', '/images/og.jpg')">
+  @if (canonicalUrl)
+    <meta property="og:url" content="{{ canonicalUrl }}">
+  @endif
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="@yield('title', 'PetStore — Real food for real dogs.')">
   <meta name="twitter:description" content="@yield('description', 'Single-ingredient, human-grade pet food. Traceable from farm to bowl.')">
