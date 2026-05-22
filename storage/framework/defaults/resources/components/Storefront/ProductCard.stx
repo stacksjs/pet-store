@@ -9,6 +9,12 @@ interface ProductCardProps {
   ingredient?: string
   weight?: string
   badge?: string
+  /** Visual treatment for the badge:
+   *   - 'urgent' → amber/dot, drives the "Only X left" copy.
+   *   - 'soft'   → default stone chip, used for "Limited" + neutral
+   *               labels like "New" / "Bestseller".
+   *  Leaving the prop unset falls back to 'soft'. */
+  badgeVariant?: 'soft' | 'urgent'
   speciesLabel?: string
 }
 
@@ -20,6 +26,7 @@ const {
   ingredient = '',
   weight = '',
   badge = '',
+  badgeVariant = 'soft',
   speciesLabel = '',
 } = defineProps<ProductCardProps>()
 </script>
@@ -41,7 +48,14 @@ const {
       class="object-cover h-full w-full duration-500 transition-transform group-hover:scale-105"
     >
     @if (badge)
-      <span class="absolute left-3 top-3 px-2 py-0.5 font-semibold text-[10px] text-stone-900 tracking-wider uppercase bg-stone-50 rounded-full">{{ badge }}</span>
+      @if (badgeVariant === 'urgent')
+        <span class="absolute left-3 top-3 inline-flex items-center gap-1.5 px-2.5 py-1 font-semibold text-[10px] text-amber-900 tracking-wider uppercase bg-amber-100 rounded-full">
+          <span aria-hidden="true" class="h-1.5 w-1.5 rounded-full bg-amber-600"></span>
+          {{ badge }}
+        </span>
+      @else
+        <span class="absolute left-3 top-3 px-2 py-0.5 font-semibold text-[10px] text-stone-900 tracking-wider uppercase bg-stone-50 rounded-full">{{ badge }}</span>
+      @endif
     @endif
   </div>
   <div class="p-4">

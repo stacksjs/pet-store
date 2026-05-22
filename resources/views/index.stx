@@ -32,16 +32,25 @@ const featured = db.query(`
   WHERE is_available = 1 AND pet_species = 'dog'
   ORDER BY price ASC
   LIMIT 4
-`).all().map((p) => ({
-  slug: p.slug,
-  name: p.name,
-  ingredient: p.ingredient,
-  weight: `${p.weight_grams}g`,
-  priceLabel: `$${Number(p.price).toFixed(2)}`,
-  image: p.image_url,
-  imageSrcset: productSrcset(p.image_url),
-  badge: p.inventory_count < 30 ? 'Limited' : '',
-}))
+`).all().map((p) => {
+  // Stock urgency tiering — same rule as /products. Kept inline
+  // rather than imported because <script server> doesn't share
+  // module scope across stx pages.
+  const stock = Number(p.inventory_count) || 0
+  const isUrgent = stock > 0 && stock <= 5
+  const isLimited = stock > 0 && stock < 30
+  return {
+    slug: p.slug,
+    name: p.name,
+    ingredient: p.ingredient,
+    weight: `${p.weight_grams}g`,
+    priceLabel: `$${Number(p.price).toFixed(2)}`,
+    image: p.image_url,
+    imageSrcset: productSrcset(p.image_url),
+    badge: isUrgent ? `Only ${stock} left` : (isLimited ? 'Limited' : ''),
+    badgeVariant: isUrgent ? 'urgent' : 'soft',
+  }
+})
 
 const principles = [
   {
@@ -182,6 +191,7 @@ const orgSchema = JSON.stringify({
             ingredient="{{ p.ingredient }}"
             weight="{{ p.weight }}"
             badge="{{ p.badge }}"
+            badgeVariant="{{ p.badgeVariant }}"
             speciesLabel="For dogs"
           />
         @endforeach

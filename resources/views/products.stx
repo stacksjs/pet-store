@@ -26,16 +26,30 @@ const products = db.query(`
   FROM products
   WHERE is_available = 1 AND pet_species = 'dog'
   ORDER BY price ASC
-`).all().map((p) => ({
-  slug: p.slug,
-  name: p.name,
-  ingredient: p.ingredient,
-  weight: `${p.weight_grams}g`,
-  priceLabel: `$${Number(p.price).toFixed(2)}`,
-  image: p.image_url,
-  imageSrcset: productSrcset(p.image_url),
-  badge: p.inventory_count < 30 ? 'Limited' : '',
-}))
+`).all().map((p) => {
+  // Stock urgency tiers — keep in sync with the PDP at
+  // resources/views/products/[slug].stx:
+  //   • <= 5    → "Only N left" (urgent variant, amber chip)
+  //   • <= 29   → "Limited"     (soft variant, stone chip)
+  //   • else    → no badge
+  // The PDP shows the exact count down to 29; here we only show the
+  // number once it's actually urgent so the catalogue grid doesn't
+  // turn into a wall of countdowns.
+  const stock = Number(p.inventory_count) || 0
+  const isUrgent = stock > 0 && stock <= 5
+  const isLimited = stock > 0 && stock < 30
+  return {
+    slug: p.slug,
+    name: p.name,
+    ingredient: p.ingredient,
+    weight: `${p.weight_grams}g`,
+    priceLabel: `$${Number(p.price).toFixed(2)}`,
+    image: p.image_url,
+    imageSrcset: productSrcset(p.image_url),
+    badge: isUrgent ? `Only ${stock} left` : (isLimited ? 'Limited' : ''),
+    badgeVariant: isUrgent ? 'urgent' : 'soft',
+  }
+})
 
 // CollectionPage + ItemList JSON-LD. Tells Google this URL is a
 // category/collection rather than a single product, and provides
@@ -92,6 +106,7 @@ const collectionSchema = products.length > 0 ? JSON.stringify({
             ingredient="{{ p.ingredient }}"
             weight="{{ p.weight }}"
             badge="{{ p.badge }}"
+            badgeVariant="{{ p.badgeVariant }}"
             speciesLabel="For dogs"
           />
         @endforeach
