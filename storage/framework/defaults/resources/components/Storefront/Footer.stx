@@ -11,6 +11,15 @@ interface FooterProps {
   columns?: FooterColumn[]
   byline?: string
   techByline?: string
+  /** Headline shown above the footer newsletter form. Empty string
+   *  hides the entire newsletter block (for layouts that already have
+   *  a signup higher up the page). */
+  newsletterHeadline?: string
+  newsletterCopy?: string
+  newsletterCtaLabel?: string
+  /** Source label posted alongside the email — distinguishes the
+   *  footer signup from waitlist / inline-on-product flows in analytics. */
+  newsletterSource?: string
 }
 
 const {
@@ -44,10 +53,45 @@ const {
   ],
   byline = `© ${new Date().getFullYear()} Stacks Store. All rights reserved.`,
   techByline = 'Built on Stacks · Bun · TypeScript · STX',
+  newsletterHeadline = 'Get the next drop in your inbox.',
+  newsletterCopy = 'A few times a month — new batches, restocks, and the occasional 10% code. No spam, unsubscribe in one click.',
+  newsletterCtaLabel = 'Subscribe',
+  newsletterSource = 'footer',
 } = defineProps<FooterProps>()
 </script>
 
 <footer class="mt-24 bg-stone-100 border-stone-200 border-t">
+  @if (newsletterHeadline)
+    {{-- Newsletter signup. POSTs to /api/email/subscribe; the existing
+         SubscriberEmailAction handles validation, dedup, and the
+         double-opt-in email. Native form submission keeps it working
+         JS-off — the response is a JSON 201 that the browser displays
+         as a JSON tab. Once the storefront grows an XHR layer, the
+         CartDrawer pattern (data-* hook + intercept) is the right
+         place to upgrade this to inline success messaging. --}}
+    <div class="bg-stone-50 border-stone-200 border-b">
+      <div class="mx-auto px-6 py-12 max-w-6xl flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <div class="max-w-xl">
+          <h2 class="font-bold text-2xl text-stone-900 tracking-tight">{{ newsletterHeadline }}</h2>
+          <p class="mt-2 leading-relaxed text-stone-600 text-sm">{{ newsletterCopy }}</p>
+        </div>
+        <form action="/api/email/subscribe" method="POST" class="flex flex-col sm:flex-row gap-2 sm:items-stretch md:min-w-[420px]">
+          <input type="hidden" name="source" value="{{ newsletterSource }}">
+          <label for="footer-newsletter-email" class="sr-only">Email address</label>
+          <input
+            type="email"
+            id="footer-newsletter-email"
+            name="email"
+            required
+            placeholder="you@example.com"
+            autocomplete="email"
+            class="flex-1 rounded-full bg-white border border-stone-300 px-5 py-3 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-stone-900"
+          >
+          <button type="submit" class="rounded-full bg-stone-900 hover:bg-stone-800 px-6 py-3 font-semibold text-sm text-stone-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 focus-visible:ring-stone-900">{{ newsletterCtaLabel }}</button>
+        </form>
+      </div>
+    </div>
+  @endif
   <div class="grid gap-8 grid-cols-2 md:gap-12 md:grid-cols-4 mx-auto px-6 py-14 max-w-6xl text-sm">
     <div class="col-span-2 md:col-span-1">
       <a href="/" class="inline-flex gap-2 items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-100 focus-visible:ring-stone-900 group">
