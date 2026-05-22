@@ -245,6 +245,33 @@ export async function runAction(action: Action, options?: ActionOptions): Promis
             const url = new URL(req.url)
             if (url.pathname.startsWith('/api/'))
               return proxyToApi(req)
+
+            // Static SEO files. stx-serve's default static handler
+            // doesn't catch root-level text/xml assets like /robots.txt
+            // and /sitemap.xml — they fall through to the SPA shell,
+            // which crawlers then index as a 175 KB HTML payload
+            // instead of policy/markup. Short-circuit them here so
+            // they're served with the right Content-Type from
+            // `public/` (the same place /favicons/* gets served from).
+            if (req.method === 'GET' || req.method === 'HEAD') {
+              const seoStatic: Record<string, string> = {
+                '/robots.txt': 'text/plain; charset=utf-8',
+                '/sitemap.xml': 'application/xml; charset=utf-8',
+              }
+              const contentType = seoStatic[url.pathname]
+              if (contentType) {
+                const file = Bun.file(p.projectPath(`public${url.pathname}`))
+                if (await file.exists()) {
+                  return new Response(file, {
+                    headers: {
+                      'Content-Type': contentType,
+                      'Cache-Control': 'public, max-age=3600',
+                    },
+                  })
+                }
+              }
+            }
+
             requestStore.enterWith({
               cookies: parseCookies(req),
               url: req.url,

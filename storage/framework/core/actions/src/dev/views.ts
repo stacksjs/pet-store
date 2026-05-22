@@ -207,6 +207,31 @@ async function startDefaultServer() {
       if (url.pathname.startsWith('/api/') || apiMethods.has(req.method))
         return proxyToApi(req, apiBase)
 
+      // Static SEO files. stx-serve's default static handler walks
+      // publicDir but doesn't catch root-level extensionless-or-text
+      // assets like /robots.txt or /sitemap.xml — those fall through to
+      // the SPA shell, which crawlers then index as a 175 KB HTML
+      // payload instead of policy/markup. Short-circuit them here so
+      // they're served with the right Content-Type.
+      if (req.method === 'GET' || req.method === 'HEAD') {
+        const seoStatic: Record<string, string> = {
+          '/robots.txt': 'text/plain; charset=utf-8',
+          '/sitemap.xml': 'application/xml; charset=utf-8',
+        }
+        const contentType = seoStatic[url.pathname]
+        if (contentType) {
+          const file = Bun.file(projectPath(`public${url.pathname}`))
+          if (await file.exists()) {
+            return new Response(file, {
+              headers: {
+                'Content-Type': contentType,
+                'Cache-Control': 'public, max-age=3600',
+              },
+            })
+          }
+        }
+      }
+
       // Stash cookies + url so server-script blocks rendering this
       // request can pull them via globalThis.requestContext. We use
       // enterWith() rather than run() because returning here would
