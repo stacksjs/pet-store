@@ -1,0 +1,35 @@
+@extends('layouts/storefront')
+
+@section('title', 'You\'re on the list — PetStore')
+@section('description', 'Thanks for subscribing to PetStore — keep an eye on your inbox for the confirmation link.')
+
+@section('content')
+  <div class="mx-auto max-w-2xl px-6 py-24 text-center">
+    <div class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-emerald-700" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+    </div>
+
+    <p class="mt-6 font-mono text-xs uppercase tracking-wider text-stone-500">You're on the list</p>
+    <h1 class="mt-3 font-bold leading-tight text-4xl text-stone-900 tracking-tight md:text-5xl">
+      Thanks — check your inbox.
+    </h1>
+    <p class="mt-5 leading-relaxed text-stone-600 max-w-md mx-auto">
+      We just sent a confirmation link from <span class="text-stone-900 font-semibold">hello@petstore</span>.
+      Click it to lock in your spot — new batches, restock alerts, and the occasional 10% code land there first.
+    </p>
+
+    <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
+      <a href="/products" class="inline-flex gap-2 items-center rounded-full bg-stone-900 hover:bg-stone-800 px-6 py-3 font-semibold text-sm text-stone-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 focus-visible:ring-stone-900">
+        Browse the bowl
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+      </a>
+      <a href="/" class="inline-flex items-center rounded-full border border-stone-300 hover:border-stone-900 px-6 py-3 font-semibold text-sm text-stone-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 focus-visible:ring-stone-900">Back home</a>
+    </div>
+
+    <p class="mt-12 text-xs text-stone-500">
+      Didn't get the email within a couple of minutes? Check your spam folder, or
+      <a href="/contact" class="underline underline-offset-4 hover:text-stone-900">drop us a note</a>
+      and we'll resend.
+    </p>
+  </div>
+@endsection

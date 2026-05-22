@@ -218,22 +218,42 @@ export async function runAction(action: Action, options?: ActionOptions): Promis
         const layoutsDir = firstExisting(['resources/views/layouts', 'resources/layouts'])
         const partialsDir = firstExisting(['resources/views/components', 'resources/components'])
 
-        // Pre-load the stx route manifest so we can detect requests
-        // that only match the [...all] catch-all and return them with
-        // an HTTP 404 status. Without this, the branded 404 page
-        // renders as 200 OK and crawlers index it as a real page.
-        // Cached at startup; the dev server regenerates this file on
-        // file changes via `bun --watch`, which restarts this process
-        // and re-imports the fresh manifest.
+        // Stx route manifest, re-read per request via mtime so a newly
+        // added view (e.g. resources/views/newsletter/thanks.stx) is
+        // recognised without restarting the dev server. The dev
+        // server's `bun --watch` doesn't cover utils.ts's import
+        // graph, so without this freshly-added pages would get a
+        // false-positive 404 from the catch-all detector below.
+        // Manifest itself is tiny (~3 KB / ~40 routes) so re-reading
+        // on demand is cheaper than tracking the file watcher.
+        const routesManifestPath = p.projectPath('.stx/routes.ts')
+        let cachedManifestMtime = 0
         let knownRoutes: Array<{ pattern: string, isDynamic: boolean }> = []
-        try {
-          const mod: any = await import(p.projectPath('.stx/routes.ts'))
-          knownRoutes = (mod.routes || []).map((r: any) => ({
-            pattern: String(r.pattern || ''),
-            isDynamic: !!r.isDynamic,
-          }))
+
+        const loadKnownRoutes = async (): Promise<void> => {
+          try {
+            const stat = await Bun.file(routesManifestPath).stat?.()
+            const mtime = stat ? Number(stat.mtimeMs || stat.mtime?.getTime?.() || 0) : 0
+            if (mtime && mtime === cachedManifestMtime)
+              return
+            const src = await Bun.file(routesManifestPath).text()
+            const routes: Array<{ pattern: string, isDynamic: boolean }> = []
+            // Parse-by-regex rather than `await import()` because the
+            // import cache pins the first-imported version of the
+            // file — even with a cache-buster query the loader returns
+            // the original module the second time around. A regex over
+            // the literal source side-steps the loader entirely.
+            const re = /pattern:\s*'([^']+)'[^}]*isDynamic:\s*(true|false)/g
+            let m: RegExpExecArray | null
+            // eslint-disable-next-line no-cond-assign
+            while ((m = re.exec(src)) !== null)
+              routes.push({ pattern: m[1], isDynamic: m[2] === 'true' })
+            knownRoutes = routes
+            cachedManifestMtime = mtime
+          }
+          catch { /* manifest missing — 404 detection falls back to never-match */ }
         }
-        catch { /* manifest missing — 404 detection falls back to never-match */ }
+        await loadKnownRoutes()
 
         // True when the path matches a real (non-catch-all) route. The
         // catch-all pattern itself is `/:all*`; if that's the *only*
@@ -319,6 +339,9 @@ export async function runAction(action: Action, options?: ActionOptions): Promis
             // loop-breaker header so stx-serve renders the template
             // normally, then wrap the body with status 404. Only on
             // GET/HEAD; other verbs already go through the API proxy.
+            // Re-checks the routes manifest mtime first so adding a
+            // new .stx view doesn't false-404 until the next restart.
+            await loadKnownRoutes()
             if ((req.method === 'GET' || req.method === 'HEAD')
               && !req.headers.get('x-internal-stx-no-404')
               && knownRoutes.length > 0

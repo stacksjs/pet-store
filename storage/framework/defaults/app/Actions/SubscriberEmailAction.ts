@@ -1,6 +1,6 @@
 import { Action } from '@stacksjs/actions'
 import { Subscriber, SubscriberEmail } from '@stacksjs/orm'
-import { rateLimit } from '@stacksjs/router'
+import { rateLimit, response } from '@stacksjs/router'
 import { sendSubscriptionConfirmation } from '../Mail/SubscriptionConfirmation'
 
 export default new Action({
@@ -15,16 +15,29 @@ export default new Action({
     // is generous for a real human filling the same form repeatedly.
     await rateLimit('email-subscribe', 10).per('minute')
 
-    const email = request.get('email')
-    const source = request.get('source') || 'homepage'
+    const email = String(request.get('email') ?? '').trim()
+    const source = String(request.get('source') ?? 'homepage').trim() || 'homepage'
+
+    // HTML form submissions (storefront footer, restock-notify, waitlist)
+    // want a real page when the response comes back; XHR callers want
+    // JSON they can act on. Differentiate via Accept + X-Requested-With
+    // so both shapes work off the same endpoint without each caller
+    // having to thread a `redirect=` field through.
+    const wantsHtml = String((request as any).headers?.get?.('accept') || '').includes('text/html')
+    const xhr = String((request as any).headers?.get?.('x-requested-with') || '') === 'XMLHttpRequest'
+    const isHtmlForm = wantsHtml && !xhr
 
     if (!email || !email.includes('@')) {
+      if (isHtmlForm)
+        return response.redirect(`/newsletter/thanks?status=invalid&source=${encodeURIComponent(source)}`)
       return { success: false, message: 'A valid email is required' }
     }
 
     // Check if subscriber already exists
     const existingSubscriber = await Subscriber.where('email', email).first()
     if (existingSubscriber) {
+      if (isHtmlForm)
+        return response.redirect(`/newsletter/thanks?status=existing&source=${encodeURIComponent(source)}`)
       return { success: true, message: 'Already subscribed' }
     }
 
@@ -42,6 +55,9 @@ export default new Action({
       const message = err instanceof Error ? err.message : String(err)
       console.error(`Failed to send confirmation email to ${email}:`, message)
     })
+
+    if (isHtmlForm)
+      return response.redirect(`/newsletter/thanks?status=ok&source=${encodeURIComponent(source)}`)
 
     return { success: true, subscriber }
   },
