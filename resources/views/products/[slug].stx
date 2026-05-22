@@ -294,6 +294,40 @@ const productSchema = product ? JSON.stringify({
             </button>
           </form>
 
+          @if (!product.inStock)
+            {{-- Restock-notify capture. Hits the same SubscriberEmail
+                 endpoint the footer + waitlist forms use, but with a
+                 per-SKU source so we can pull the list of who-asked
+                 for-what when a batch comes back in. The handler
+                 already dedupes by (email, source), so a shopper
+                 hitting this twice doesn't get double-subscribed. --}}
+            <div class="mt-6 rounded-2xl border border-stone-200 bg-stone-50 p-5">
+              <div class="flex items-start gap-3">
+                <span aria-hidden="true" class="mt-0.5 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-stone-900 text-stone-50">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>
+                </span>
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-stone-900">Tell me when it's back.</p>
+                  <p class="mt-1 text-sm text-stone-600 leading-relaxed">We'll email you the moment {{ product.name }} returns. Usually within 2-3 weeks of the previous batch selling through.</p>
+                  <form action="/api/email/subscribe" method="POST" class="mt-4 flex flex-col sm:flex-row gap-2">
+                    <input type="hidden" name="source" value="restock-{{ product.slug }}">
+                    <label for="restock-email" class="sr-only">Email address</label>
+                    <input
+                      type="email"
+                      id="restock-email"
+                      name="email"
+                      required
+                      placeholder="you@example.com"
+                      autocomplete="email"
+                      class="flex-1 rounded-full bg-white border border-stone-300 px-5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-stone-900"
+                    >
+                    <button type="submit" class="rounded-full bg-stone-900 hover:bg-stone-800 px-5 py-2.5 font-semibold text-sm text-stone-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 focus-visible:ring-stone-900">Notify me</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          @endif
+
           {{-- Subscribe & Save — preview affordance. The recurring-
                delivery flow itself is gated behind the freeze-dried
                launch (Stripe subscriptions wire up at the same time),
