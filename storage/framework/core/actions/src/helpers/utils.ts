@@ -218,6 +218,42 @@ export async function runAction(action: Action, options?: ActionOptions): Promis
         const layoutsDir = firstExisting(['resources/views/layouts', 'resources/layouts'])
         const partialsDir = firstExisting(['resources/views/components', 'resources/components'])
 
+        // Pre-load the stx route manifest so we can detect requests
+        // that only match the [...all] catch-all and return them with
+        // an HTTP 404 status. Without this, the branded 404 page
+        // renders as 200 OK and crawlers index it as a real page.
+        // Cached at startup; the dev server regenerates this file on
+        // file changes via `bun --watch`, which restarts this process
+        // and re-imports the fresh manifest.
+        let knownRoutes: Array<{ pattern: string, isDynamic: boolean }> = []
+        try {
+          const mod: any = await import(p.projectPath('.stx/routes.ts'))
+          knownRoutes = (mod.routes || []).map((r: any) => ({
+            pattern: String(r.pattern || ''),
+            isDynamic: !!r.isDynamic,
+          }))
+        }
+        catch { /* manifest missing — 404 detection falls back to never-match */ }
+
+        // True when the path matches a real (non-catch-all) route. The
+        // catch-all pattern itself is `/:all*`; if that's the *only*
+        // match, the page should serve with HTTP 404.
+        const matchesKnownRoute = (path: string): boolean => {
+          for (const r of knownRoutes) {
+            if (r.pattern === '/:all*')
+              continue
+            if (!r.isDynamic) {
+              if (r.pattern === path)
+                return true
+              continue
+            }
+            const re = new RegExp(`^${r.pattern.replace(/:[A-Za-z_$][\w$]*\*?/g, '[^/]+')}$`)
+            if (re.test(path))
+              return true
+          }
+          return false
+        }
+
         await serve({
           patterns: ['resources/views', 'storage/framework/defaults/resources/views'],
           port,
@@ -276,6 +312,33 @@ export async function runAction(action: Action, options?: ActionOptions): Promis
               cookies: parseCookies(req),
               url: req.url,
             })
+
+            // Catch-all 404. When the URL doesn't match a real route,
+            // the [...all] template renders — but stx-serve serves it
+            // with HTTP 200. Re-issue the request to ourselves with a
+            // loop-breaker header so stx-serve renders the template
+            // normally, then wrap the body with status 404. Only on
+            // GET/HEAD; other verbs already go through the API proxy.
+            if ((req.method === 'GET' || req.method === 'HEAD')
+              && !req.headers.get('x-internal-stx-no-404')
+              && knownRoutes.length > 0
+              && !matchesKnownRoute(url.pathname)) {
+              const forward = new Headers(req.headers)
+              forward.set('x-internal-stx-no-404', '1')
+              const upstream = await fetch(req.url, {
+                method: req.method,
+                headers: forward,
+              })
+              const outHeaders = new Headers(upstream.headers)
+              outHeaders.delete('content-length')
+              outHeaders.delete('content-encoding')
+              return new Response(upstream.body, {
+                status: 404,
+                statusText: 'Not Found',
+                headers: outHeaders,
+              })
+            }
+
             return null
           },
         })
