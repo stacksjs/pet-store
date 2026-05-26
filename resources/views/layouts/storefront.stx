@@ -87,6 +87,7 @@ const footerColumns = [
     links: [
       { href: '/contact', label: 'Contact' },
       { href: '/faq', label: 'FAQ' },
+      { href: '/track', label: 'Track an order' },
       { href: '/shipping', label: 'Shipping & returns' },
     ],
   },

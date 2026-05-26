@@ -45,6 +45,12 @@ route.post('/api/account/profile', 'Actions/Storefront/UpdateProfileAction').ski
 // the same cart-cookie flow as AddToCart, no login required.
 route.post('/api/cart/reorder', 'Actions/Storefront/ReorderAction').skipCsrf()
 
+// Guest order tracking. POSTs order_number + email; returns the
+// order uuid on match so the client can redirect to /orders/{uuid}.
+// Constant-message failure prevents enumerating sequential order
+// ids; per-IP rate-limit caps brute-force probes.
+route.post('/api/orders/lookup', 'Actions/Storefront/LookupOrderAction').skipCsrf()
+
 // Coupon apply / remove. Single endpoint, `remove=1` clears the
 // active coupon. Validates against the coupons table (active, in
 // date range, under usage limit, min subtotal met) and updates the
