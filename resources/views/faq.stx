@@ -4,6 +4,19 @@
 @section('description', 'Answers to the questions we get most: ingredients, sourcing, sizing, shipping, and returns.')
 
 <script server>
+// Each section gets a deterministic anchor slug so external links
+// (footer "Shipping & returns" pointing to /faq#shipping, future
+// marketing emails, etc.) can deep-link straight to the right block.
+// Computed inline rather than typed by hand so a new section's title
+// is enough — the slug follows automatically.
+function slugifyHeading(s) {
+  return String(s)
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
 const sections = [
   {
     title: 'Ingredients & sourcing',
@@ -103,8 +116,13 @@ const faqSchema = JSON.stringify({
     </p>
 
     @foreach (sections as section)
-      <section class="mt-14">
-        <h2 class="font-bold text-2xl text-stone-900 tracking-tight">{{ section.title }}</h2>
+      <section id="{{ slugifyHeading(section.title) }}" class="mt-14 scroll-mt-20">
+        <h2 class="font-bold text-2xl text-stone-900 tracking-tight">
+          <a href="#{{ slugifyHeading(section.title) }}" class="inline-flex gap-2 items-center hover:text-stone-700 group">
+            {{ section.title }}
+            <span aria-hidden="true" class="text-base text-stone-300 opacity-0 group-hover:opacity-100 transition-opacity">#</span>
+          </a>
+        </h2>
         <div class="mt-6 border-stone-200 border-y divide-stone-200 divide-y">
           @foreach (section.items as item)
             <details class="py-5 group">
