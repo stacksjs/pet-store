@@ -118,11 +118,20 @@ if (items.length > 0) {
   // accidental injection vector if a cart row ever carried unusual
   // characters in product_sku.
   const placeholders = slugsInCart.map((_, idx) => `?${idx + 1}`).join(', ')
+  // Aggregate-review join mirrors the catalog pages so the suggestion
+  // cards show the same star + count row everyone else does.
   const baseSql = `
-    SELECT slug, name, ingredient, weight_grams, price, image_url, inventory_count
-    FROM products
-    WHERE is_available = 1 AND pet_species = 'dog' AND inventory_count > 0
-      ${slugsInCart.length ? `AND slug NOT IN (${placeholders})` : ''}
+    SELECT p.slug, p.name, p.ingredient, p.weight_grams, p.price, p.image_url, p.inventory_count,
+          COALESCE(r.n, 0) AS review_count,
+          COALESCE(r.avg, 0) AS review_avg
+    FROM products p
+    LEFT JOIN (
+      SELECT product_id, COUNT(*) AS n, AVG(rating) AS avg
+      FROM reviews WHERE is_approved = 1
+      GROUP BY product_id
+    ) r ON r.product_id = p.id
+    WHERE p.is_available = 1 AND p.pet_species = 'dog' AND p.inventory_count > 0
+      ${slugsInCart.length ? `AND p.slug NOT IN (${placeholders})` : ''}
   `
   const rows = db.query(baseSql).all(...slugsInCart)
 
@@ -147,6 +156,8 @@ if (items.length > 0) {
     const stock = Number(p.inventory_count) || 0
     const isUrgent = stock > 0 && stock <= 5
     const isLimited = stock > 0 && stock < 30
+    const reviewCount = Number(p.review_count) || 0
+    const reviewAvg = Number(p.review_avg) || 0
     return {
       slug: p.slug,
       name: p.name,
@@ -157,6 +168,8 @@ if (items.length > 0) {
       imageSrcset: productSrcset(p.image_url),
       badge: isUrgent ? `Only ${stock} left` : (isLimited ? 'Limited' : ''),
       badgeVariant: isUrgent ? 'urgent' : 'soft',
+      reviewCount,
+      ratingLabel: reviewCount > 0 ? reviewAvg.toFixed(1) : '',
     }
   })
 }
@@ -342,6 +355,8 @@ const suggestionsHeadline = (items.length > 0 && !freeShippingUnlocked && remain
                 badge="{{ p.badge }}"
                 badgeVariant="{{ p.badgeVariant }}"
                 speciesLabel="For dogs"
+                ratingLabel="{{ p.ratingLabel }}"
+                :reviewCount="p.reviewCount"
               />
             @endforeach
           </div>

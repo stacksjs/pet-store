@@ -24,15 +24,28 @@ function productSrcset(imageUrl) {
 // "Limited" threshold the rest of the storefront uses (<30). Ordered
 // by inventory_count ASC so the most-urgent shows first — matches the
 // page's promise to surface what's about to run out.
+// LEFT JOIN aggregate review data so the stock-pressured cards carry
+// the same star-rating row as /products. Same shape as the other
+// catalog pages — see resources/views/products.stx for the canonical
+// pattern.
 const products = db.query(`
-  SELECT slug, name, ingredient, weight_grams, price, image_url, inventory_count
-  FROM products
-  WHERE is_available = 1 AND pet_species = 'dog'
-    AND inventory_count > 0 AND inventory_count < 30
-  ORDER BY inventory_count ASC, price ASC
+  SELECT p.slug, p.name, p.ingredient, p.weight_grams, p.price, p.image_url, p.inventory_count,
+        COALESCE(r.n, 0) AS review_count,
+        COALESCE(r.avg, 0) AS review_avg
+  FROM products p
+  LEFT JOIN (
+    SELECT product_id, COUNT(*) AS n, AVG(rating) AS avg
+    FROM reviews WHERE is_approved = 1
+    GROUP BY product_id
+  ) r ON r.product_id = p.id
+  WHERE p.is_available = 1 AND p.pet_species = 'dog'
+    AND p.inventory_count > 0 AND p.inventory_count < 30
+  ORDER BY p.inventory_count ASC, p.price ASC
 `).all().map((p) => {
   const stock = Number(p.inventory_count) || 0
   const isUrgent = stock > 0 && stock <= 5
+  const reviewCount = Number(p.review_count) || 0
+  const reviewAvg = Number(p.review_avg) || 0
   return {
     slug: p.slug,
     name: p.name,
@@ -43,6 +56,8 @@ const products = db.query(`
     imageSrcset: productSrcset(p.image_url),
     badge: isUrgent ? `Only ${stock} left` : 'Limited',
     badgeVariant: isUrgent ? 'urgent' : 'soft',
+    reviewCount,
+    ratingLabel: reviewCount > 0 ? reviewAvg.toFixed(1) : '',
   }
 })
 
@@ -52,7 +67,7 @@ const hasItems = products.length > 0
 </script>
 
 @section('content')
-  <div class="mx-auto max-w-6xl px-6 py-12">
+  <div class="mx-auto px-6 py-12 max-w-6xl">
 
     <div class="max-w-2xl">
       <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">
@@ -80,7 +95,7 @@ const hasItems = products.length > 0
     </div>
 
     @if (hasItems)
-      <div class="mt-10 grid gap-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+      <div class="grid gap-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 mt-10">
         @foreach (products as p)
           <ProductCard
             slug="{{ p.slug }}"
@@ -93,18 +108,20 @@ const hasItems = products.length > 0
             badge="{{ p.badge }}"
             badgeVariant="{{ p.badgeVariant }}"
             speciesLabel="For dogs"
+            ratingLabel="{{ p.ratingLabel }}"
+            :reviewCount="p.reviewCount"
           />
         @endforeach
       </div>
     @else
-      <div class="mt-10 grid sm:grid-cols-2 gap-4">
-        <a href="/products" class="rounded-2xl border border-stone-200 p-6 hover:border-stone-900 transition-colors">
-          <p class="text-xs uppercase tracking-wider text-emerald-700 font-semibold">Shop</p>
+      <div class="grid gap-4 sm:grid-cols-2 mt-10">
+        <a href="/products" class="p-6 border border-stone-200 rounded-2xl hover:border-stone-900 transition-colors">
+          <p class="font-semibold text-emerald-700 text-xs tracking-wider uppercase">Shop</p>
           <p class="mt-2 font-semibold text-stone-900">Browse the whole bowl</p>
           <p class="mt-1 text-sm text-stone-500">Single-ingredient cuts, slow-dehydrated. For dogs.</p>
         </a>
-        <a href="/about" class="rounded-2xl border border-stone-200 p-6 hover:border-stone-900 transition-colors">
-          <p class="text-xs uppercase tracking-wider text-emerald-700 font-semibold">About</p>
+        <a href="/about" class="p-6 border border-stone-200 rounded-2xl hover:border-stone-900 transition-colors">
+          <p class="font-semibold text-emerald-700 text-xs tracking-wider uppercase">About</p>
           <p class="mt-2 font-semibold text-stone-900">How we source</p>
           <p class="mt-1 text-sm text-stone-500">USDA-inspected only, third-party batch testing on every bag.</p>
         </a>
