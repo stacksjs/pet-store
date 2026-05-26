@@ -67,6 +67,67 @@ const featured = db.query(`
   }
 })
 
+// Recently-viewed strip. The PDP writes a slug list to
+// `stacks_recent_views` on every visit; here we read it back and
+// surface up to four products as a "Pick up where you left off"
+// row for returning shoppers. Empty cookie = section hidden, so
+// first-time visitors don't see a phantom block. Slugs are bound
+// through SQLite placeholders so a tampered cookie can't escape
+// into the query.
+const RECENT_COOKIE = 'stacks_recent_views'
+const SLUG_RE = /^[a-z0-9-]{1,64}$/i
+const rawRecentCookie = (typeof requestContext !== 'undefined') ? requestContext.cookie(RECENT_COOKIE) : null
+const recentSlugs = String(rawRecentCookie || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(s => SLUG_RE.test(s))
+  .slice(0, 8)
+
+let recentlyViewed = []
+if (recentSlugs.length > 0) {
+  const placeholders = recentSlugs.map((_, idx) => `?${idx + 1}`).join(', ')
+  const rows = db.query(`
+    SELECT p.slug, p.name, p.ingredient, p.weight_grams, p.price, p.image_url, p.inventory_count,
+          COALESCE(r.n, 0) AS review_count,
+          COALESCE(r.avg, 0) AS review_avg
+    FROM products p
+    LEFT JOIN (
+      SELECT product_id, COUNT(*) AS n, AVG(rating) AS avg
+      FROM reviews WHERE is_approved = 1
+      GROUP BY product_id
+    ) r ON r.product_id = p.id
+    WHERE p.is_available = 1 AND p.pet_species = 'dog'
+      AND p.slug IN (${placeholders})
+  `).all(...recentSlugs)
+  // Preserve the cookie's order (most-recent first) — SQL `IN` doesn't
+  // guarantee result order matches the placeholder order.
+  const bySlug = new Map(rows.map(r => [r.slug, r]))
+  recentlyViewed = recentSlugs
+    .map(s => bySlug.get(s))
+    .filter(Boolean)
+    .slice(0, 4)
+    .map((p) => {
+      const stock = Number(p.inventory_count) || 0
+      const isUrgent = stock > 0 && stock <= 5
+      const isLimited = stock > 0 && stock < 30
+      const reviewCount = Number(p.review_count) || 0
+      const reviewAvg = Number(p.review_avg) || 0
+      return {
+        slug: p.slug,
+        name: p.name,
+        ingredient: p.ingredient,
+        weight: `${p.weight_grams}g`,
+        priceLabel: `$${Number(p.price).toFixed(2)}`,
+        image: p.image_url,
+        imageSrcset: productSrcset(p.image_url),
+        badge: isUrgent ? `Only ${stock} left` : (isLimited ? 'Limited' : ''),
+        badgeVariant: isUrgent ? 'urgent' : 'soft',
+        reviewCount,
+        ratingLabel: reviewCount > 0 ? reviewAvg.toFixed(1) : '',
+      }
+    })
+}
+
 const principles = [
   {
     title: 'One ingredient',
@@ -180,6 +241,42 @@ const orgSchema = JSON.stringify({
       </div>
     </div>
   </section>
+
+  @if (recentlyViewed.length > 0)
+    {{-- Recently viewed. Lives above Bestsellers so a returning
+        shopper sees what they were looking at last, ahead of the
+        generic featured grid. Hidden entirely when the cookie's
+        empty — first-time visitors shouldn't see a phantom row. --}}
+    <section class="py-12 bg-stone-50 border-stone-200 border-y">
+      <div class="mx-auto px-6 max-w-6xl">
+        <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">Recently viewed</p>
+            <h2 class="mt-2 font-bold text-2xl text-stone-900 tracking-tight md:text-3xl">Pick up where you left off.</h2>
+          </div>
+          <a href="/products" class="font-medium text-sm text-stone-700 underline-offset-4 hover:text-stone-900 hover:underline">Browse all →</a>
+        </div>
+        <div class="grid gap-5 grid-cols-2 md:grid-cols-4 mt-8">
+          @foreach (recentlyViewed as p)
+            <ProductCard
+              slug="{{ p.slug }}"
+              name="{{ p.name }}"
+              priceLabel="{{ p.priceLabel }}"
+              image="{{ p.image }}"
+              imageSrcset="{{ p.imageSrcset }}"
+              ingredient="{{ p.ingredient }}"
+              weight="{{ p.weight }}"
+              badge="{{ p.badge }}"
+              badgeVariant="{{ p.badgeVariant }}"
+              speciesLabel="For dogs"
+              ratingLabel="{{ p.ratingLabel }}"
+              :reviewCount="p.reviewCount"
+            />
+          @endforeach
+        </div>
+      </div>
+    </section>
+  @endif
 
   <!-- Featured -->
   <section class="py-20 bg-stone-100">

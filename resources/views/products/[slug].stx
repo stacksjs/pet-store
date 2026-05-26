@@ -510,4 +510,40 @@ const productSchema = product ? JSON.stringify({
          so it disappears on larger screens where the bar isn't shown. --}}
     <div aria-hidden="true" class="md:hidden h-20"></div>
   @endif
+
+  @if (found)
+    {{-- Recently-viewed cookie. On every PDP load we prepend the
+         current slug to a small client-side history list so the
+         homepage can show "Pick up where you left off" for returning
+         shoppers. Unsigned plaintext cookie (this is preference data,
+         not auth) — comma-separated slugs, capped at 8 entries,
+         one-year expiry. SameSite=Lax so it survives normal cross-
+         site link entries without leaking on forged POSTs. --}}
+    <script data-stx-scoped data-stx-pdp-slug="{{ product.slug }}">
+    ;(() => {
+      if (window.__stxRecentViewsWired) return
+      window.__stxRecentViewsWired = true
+
+      const root = document.querySelector('[data-stx-pdp-slug]')
+      const slug = root ? root.getAttribute('data-stx-pdp-slug') : ''
+      if (!slug || !/^[a-z0-9-]{1,64}$/i.test(slug)) return
+
+      const COOKIE = 'stacks_recent_views'
+      const MAX = 8
+      // Cookie parse: tolerate missing / malformed cookies. We never
+      // act on cookie contents beyond rendering — XSS payloads would
+      // be quoted into the SQL `IN (...)` placeholder, not executed —
+      // but the slug regex below still gates the cookie's contents.
+      const raw = (document.cookie.split('; ').find(c => c.indexOf(COOKIE + '=') === 0) || '').split('=')[1] || ''
+      const existing = raw
+        ? decodeURIComponent(raw).split(',').filter(s => /^[a-z0-9-]{1,64}$/i.test(s))
+        : []
+      const next = [slug].concat(existing.filter(s => s !== slug)).slice(0, MAX)
+
+      const oneYear = 60 * 60 * 24 * 365
+      document.cookie = COOKIE + '=' + encodeURIComponent(next.join(',')) +
+        '; Max-Age=' + oneYear + '; Path=/; SameSite=Lax'
+    })()
+    </script>
+  @endif
 @endsection
