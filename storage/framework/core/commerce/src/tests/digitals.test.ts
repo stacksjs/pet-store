@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { refreshDatabase } from '@stacksjs/testing/database'
+import { refreshDatabase } from '@stacksjs/testing'
 import { bulkDestroy, bulkSoftDelete } from '../shippings/digital-deliveries/destroy'
 import { bulkStore } from '../shippings/digital-deliveries/store'
 

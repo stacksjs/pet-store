@@ -1,7 +1,7 @@
 {
   "name": "@stacksjs/testing",
   "type": "module",
-  "version": "0.70.23",
+  "version": "0.70.45",
   "description": "The Stacks way of testing.",
   "author": "Chris Breuer",
   "contributors": [
@@ -31,19 +31,9 @@
   ],
   "exports": {
     ".": {
-      "bun": "./src/index.ts",
       "types": "./dist/index.d.ts",
+      "bun": "./src/index.ts",
       "import": "./dist/index.js"
-    },
-    "./database": {
-      "bun": "./src/database.ts",
-      "types": "./dist/database.d.ts",
-      "import": "./dist/database.js"
-    },
-    "./dynamodb": {
-      "bun": "./src/dynamodb.ts",
-      "types": "./dist/dynamodb.d.ts",
-      "import": "./dist/dynamodb.js"
     },
     "./*": {
       "bun": "./src/*",
@@ -67,6 +57,6 @@
   "devDependencies": {
     "@stacksjs/config": "workspace:*",
     "@stacksjs/database": "workspace:*",
-    "better-dx": "^0.2.15"
+    "better-dx": "^0.2.12"
   }
 }

@@ -42,8 +42,7 @@
     "dist"
   ],
   "scripts": {
-    "deploy": "bun deploy.ts",
-    "dev": "./dev local"
+    "deploy": "bun deploy.ts"
   },
   "dependencies": {
     "@stacksjs/config": "workspace:*",
@@ -58,7 +57,7 @@
   },
   "devDependencies": {
     "@stacksjs/cli": "workspace:*",
-    "better-dx": "^0.2.15",
+    "better-dx": "^0.2.7",
     "@stacksjs/env": "workspace:*"
   }
 }

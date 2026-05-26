@@ -26,6 +26,18 @@ import { frameworkPath } from '@stacksjs/path'
 import { route } from '@stacksjs/router'
 import MaintenanceMiddleware from './app/Middleware/Maintenance'
 
+// RBAC: wire the bun-query-builder-backed store so `hasRole(user, …)` and
+// friends from `@stacksjs/auth` actually hit the database (otherwise every
+// call throws "RBAC store not configured"). The store is a thin adapter
+// over the `roles` / `permissions` / `user_roles` / `user_permissions` /
+// `role_permissions` tables created by migrations 0000000101–0000000105.
+// Registered unconditionally because the auth middleware + Role middleware
+// both reach for the helpers at request time regardless of which feature
+// the project opts into.
+import { createBqbRbacStore, setRbacStore } from '@stacksjs/auth'
+
+setRbacStore(createBqbRbacStore())
+
 // Global maintenance / coming-soon gate. Registered first so the
 // `buddy down` / `buddy coming-soon` (and their env-var equivalents)
 // state files intercept every request before any other middleware or
@@ -44,6 +56,10 @@ import MaintenanceMiddleware from './app/Middleware/Maintenance'
 // return `undefined`, bun-router's chain treats that as a short-circuit
 // to an empty 200, and every route returns `200 OK Content-Length: 0`.
 route.use(MaintenanceMiddleware.toRouterHandler() as any)
+
+// Locale cookie + STX-style path redirect (`/locale/en` → `/en/…`).
+// Overridable by registering the same path in app routes first.
+await route.register(frameworkPath('defaults/routes/core.ts'))
 
 // Feature-gated route registration. The dashboard.ts file currently bundles
 // ~687 lines covering auth, password reset, email subscribe, storefront
@@ -69,4 +85,15 @@ if (feature('dashboard')) {
   // JSON endpoints for the dev dashboard UI. Kept separate from the view
   // routes above so the data layer is one obvious file to grep.
   await route.register(frameworkPath('defaults/routes/dashboard-api.ts'))
+}
+
+// Email webhook + unsubscribe routes (stacksjs/stacks#1881, #1880).
+// Always mounted when the `email` feature is on — the underlying
+// handlers self-disable when their provider credentials aren't
+// configured (they 401 rather than processing). Apps that need a
+// non-default mount path register their own routes in `routes/api.ts`
+// and the framework's mount silently no-ops since user routes
+// register first.
+if (feature('email')) {
+  await route.register(frameworkPath('defaults/routes/email.ts'))
 }

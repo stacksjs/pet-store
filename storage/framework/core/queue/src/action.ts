@@ -1,5 +1,6 @@
 import type { JobOptions } from '@stacksjs/types'
 import { env as envVars } from '@stacksjs/env'
+import { createEnvelope } from './envelope'
 
 function getQueueDriver(): string {
   return envVars.QUEUE_DRIVER || 'sync'
@@ -171,16 +172,14 @@ export class Job {
     const now = Math.floor(Date.now() / 1000)
     const availableAt = opts?.delay ? now + opts.delay : now
 
-    const payloadObj = {
-      jobName: this.name,
-      payload,
-      options: {
-        queue: this.queue,
-        tries: this.tries,
-        timeout: this.timeout,
-        backoff: this.backoff,
-      },
-    }
+    // Unified envelope (stacksjs/stacks#1884 Q-6) — see job.ts for
+    // the full rationale.
+    const envelope = createEnvelope(this.name, payload, {
+      queue: this.queue,
+      tries: typeof this.tries === 'number' ? this.tries : undefined,
+      timeout: this.timeout,
+      backoff: Array.isArray(this.backoff) ? this.backoff : undefined,
+    })
 
     const { db } = await import('@stacksjs/database')
 
@@ -188,7 +187,7 @@ export class Job {
       .insertInto('jobs')
       .values({
         queue: this.queue || 'default',
-        payload: JSON.stringify(payloadObj),
+        payload: JSON.stringify(envelope),
         attempts: 0,
         reserved_at: null,
         available_at: availableAt,
@@ -200,19 +199,29 @@ export class Job {
   private async dispatchToRedis(payload?: any, opts?: { delay?: number }): Promise<void> {
     const { RedisQueue } = await import('./drivers/redis')
     const { queue: queueConfig } = await import('@stacksjs/config')
-    const redisConfig = (queueConfig as any)?.connections?.redis
+    // Typed end-to-end via `StacksOptions['queue']` —
+    // stacksjs/stacks#1875 T-6 dropped the `as any` cast that
+    // escaped that typing.
+    const redisConfig = queueConfig?.connections?.redis
 
     if (!redisConfig) {
       throw new Error('Redis queue connection is not configured. Check config/queue.ts')
     }
 
-    const queue = new RedisQueue(this.queue || 'default', redisConfig as any)
+    const queue = new RedisQueue(this.queue || 'default', redisConfig)
+
+    // Same envelope as the database path (stacksjs/stacks#1884 Q-6) —
+    // bun-queue takes the envelope as opaque data; the worker side
+    // parses through `parseEnvelope` regardless of driver.
+    const envelope = createEnvelope(this.name, payload, {
+      queue: this.queue,
+      tries: typeof this.tries === 'number' ? this.tries : undefined,
+      timeout: this.timeout,
+      backoff: Array.isArray(this.backoff) ? this.backoff : undefined,
+    })
 
     await queue.add(
-      {
-        jobName: this.name,
-        payload,
-      } as any,
+      envelope,
       {
         delay: opts?.delay,
         maxTries: typeof this.tries === 'number' ? this.tries : undefined,

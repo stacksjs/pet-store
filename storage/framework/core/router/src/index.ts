@@ -82,6 +82,34 @@ export type { StreamOptions } from './stacks-router'
 export { signedUrl, signUrl, verifySignedUrl, verifySignedUrlMiddleware } from './signed-url'
 export type { SignedUrlOptions, SignedUrlVerifyResult } from './signed-url'
 
+// Encryption-at-rest wrapper for any bun-router SessionStore
+// (stacksjs/stacks#1878 Se-4). Opt-in: wrap your existing store
+// instance so session payloads are AES-GCM encrypted via APP_KEY
+// before being persisted.
+export { EncryptedSessionStore } from './encrypted-session-store'
+export type { EncryptedSessionStoreOptions } from './encrypted-session-store'
+
+// Session driver factory (stacksjs/stacks#1889, F-2 from #1874).
+// Builds a SessionStore from the Stacks config — picks the right
+// driver from `config.session.driver`, optionally wraps with
+// EncryptedSessionStore. Re-exports all four bun-router store
+// classes so callers can assemble custom stacks manually too.
+export {
+  createSessionStore,
+  createStacksSessionStore,
+  DatabaseSessionStore,
+  FileSessionStore,
+  MemorySessionStore,
+  RedisSessionStore,
+} from './session-factory'
+export type {
+  RedisClient,
+  SessionConfig,
+  SessionData,
+  SessionStore,
+  StacksSessionConfig,
+} from './session-factory'
+
 // DI: register the router's query tracker with the database package on
 // import so the cycle `database → router → database` doesn't manifest
 // statically. Lazy-imported via Promise so the database package stays

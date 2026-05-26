@@ -18,6 +18,7 @@ const commandRegistry: Record<string, CommandLoader> = {
   'add': { path: './commands/add.ts', exportName: 'add' },
   'auth': { path: './commands/auth.ts', exportName: 'auth' },
   'build': { path: './commands/build.ts', exportName: 'build' },
+  'cd': { path: './commands/cd.ts', exportName: 'cd' },
   'changelog': { path: './commands/changelog.ts', exportName: 'changelog' },
   'clean': { path: './commands/clean.ts', exportName: 'clean' },
   'cloud': { path: './commands/cloud.ts', exportName: 'cloud' },
@@ -62,6 +63,7 @@ const commandRegistry: Record<string, CommandLoader> = {
   'status': { path: './commands/maintenance.ts', exportName: 'maintenance' },
   'make': { path: './commands/make.ts', exportName: 'make' },
   'migrate': { path: './commands/migrate.ts', exportName: 'migrate' },
+  'migrate:project': { path: './commands/migrate-project.ts', exportName: 'migrateProject' },
   'outdated': { path: './commands/outdated.ts', exportName: 'outdated' },
   'package': { path: './commands/package.ts', exportName: 'packageCommands' },
   'phone': { path: './commands/phone.ts', exportName: 'phone' },
@@ -81,6 +83,11 @@ const commandRegistry: Record<string, CommandLoader> = {
   'schedule': { path: './commands/schedule.ts', exportName: 'schedule' },
   'search': { path: './commands/search.ts', exportName: 'search' },
   'seed': { path: './commands/seed.ts', exportName: 'seed' },
+  // `seed:roles` alias also lazy-loads commands/seed.ts (which registers
+  // both `seed` and `seed:roles` subcommands when its exported `seed()`
+  // function runs). Single export, two callable commands.
+  'seed:roles': { path: './commands/seed.ts', exportName: 'seed' },
+  'roles:seed': { path: './commands/seed.ts', exportName: 'seed' },
   'setup': { path: './commands/setup.ts', exportName: 'setup' },
   'share': { path: './commands/share.ts', exportName: 'share' },
   'stack': { path: './commands/stacks.ts', exportName: 'stacks' },
