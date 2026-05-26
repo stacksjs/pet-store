@@ -70,6 +70,7 @@ const footerColumns = [
     links: [
       { href: '/products', label: 'All treats' },
       { href: '/limited', label: 'Running low' },
+      { href: '/wishlist', label: 'Wishlist' },
       { href: '/cart', label: 'Cart' },
     ],
   },

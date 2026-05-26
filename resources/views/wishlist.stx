@@ -1,0 +1,153 @@
+@extends('layouts/storefront')
+
+@section('title', 'Your wishlist — PetStore')
+@section('description', 'The cuts you saved for later, all in one place. No account needed.')
+
+<script server>
+const Database = require('bun:sqlite').Database
+const path = require('path')
+
+const dbPath = path.resolve(process.cwd(), process.env.DB_DATABASE_PATH || 'database/pet-store.sqlite')
+const db = new Database(dbPath, { readonly: true })
+
+// See resources/views/products.stx for the rationale on this srcset
+// builder — same shape, same widths. Duplicated here rather than
+// imported because <script server> doesn't share module scope across
+// stx pages.
+const PRODUCT_VARIANT_WIDTHS = [400, 600, 900]
+function productSrcset(imageUrl) {
+  const m = String(imageUrl || '').match(/^(\/images\/products\/[a-z0-9-]+)\.(jpe?g|png)$/i)
+  if (!m) return ''
+  return PRODUCT_VARIANT_WIDTHS.map(w => `${m[1]}-${w}.jpg ${w}w`).join(', ')
+}
+
+// Wishlist = whatever lives in the stacks_wishlist cookie. Same
+// shape as stacks_recent_views: unsigned plaintext, comma-separated
+// slugs, slug-regex-gated on read so a tampered cookie can't escape
+// into the IN-list query. Capped at the same 50 the client-side
+// writer caps at, so a hostile actor can't grow the placeholder
+// list past what we expect.
+const SLUG_RE = /^[a-z0-9-]{1,64}$/i
+const rawCookie = (typeof requestContext !== 'undefined') ? requestContext.cookie('stacks_wishlist') : null
+const savedSlugs = String(rawCookie || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(s => SLUG_RE.test(s))
+  .slice(0, 50)
+
+let products = []
+if (savedSlugs.length > 0) {
+  const placeholders = savedSlugs.map((_, idx) => `?${idx + 1}`).join(', ')
+  const rows = db.query(`
+    SELECT p.slug, p.name, p.ingredient, p.weight_grams, p.price, p.image_url, p.inventory_count,
+          COALESCE(r.n, 0) AS review_count,
+          COALESCE(r.avg, 0) AS review_avg
+    FROM products p
+    LEFT JOIN (
+      SELECT product_id, COUNT(*) AS n, AVG(rating) AS avg
+      FROM reviews WHERE is_approved = 1
+      GROUP BY product_id
+    ) r ON r.product_id = p.id
+    WHERE p.is_available = 1 AND p.pet_species = 'dog'
+      AND p.slug IN (${placeholders})
+  `).all(...savedSlugs)
+  // Preserve cookie order (newest-saved first) — SQL `IN` doesn't.
+  const bySlug = new Map(rows.map(r => [r.slug, r]))
+  products = savedSlugs
+    .map(s => bySlug.get(s))
+    .filter(Boolean)
+    .map((p) => {
+      const stock = Number(p.inventory_count) || 0
+      const isUrgent = stock > 0 && stock <= 5
+      const isLimited = stock > 0 && stock < 30
+      const reviewCount = Number(p.review_count) || 0
+      const reviewAvg = Number(p.review_avg) || 0
+      return {
+        slug: p.slug,
+        name: p.name,
+        ingredient: p.ingredient,
+        weight: `${p.weight_grams}g`,
+        priceLabel: `$${Number(p.price).toFixed(2)}`,
+        image: p.image_url,
+        imageSrcset: productSrcset(p.image_url),
+        badge: isUrgent ? `Only ${stock} left` : (isLimited ? 'Limited' : ''),
+        badgeVariant: isUrgent ? 'urgent' : 'soft',
+        reviewCount,
+        ratingLabel: reviewCount > 0 ? reviewAvg.toFixed(1) : '',
+      }
+    })
+}
+
+// `savedSlugs.length > products.length` flags items that were in
+// the cookie but didn't come back from the DB — discontinued or
+// otherwise unavailable. We don't render them here but the count
+// drives the "{n} items removed because they're no longer in stock"
+// nudge below.
+const ghostedCount = Math.max(0, savedSlugs.length - products.length)
+const hasItems = products.length > 0
+</script>
+
+@section('content')
+  <div class="mx-auto px-6 py-12 max-w-6xl">
+
+    <div class="max-w-2xl">
+      <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">Wishlist</p>
+      <h1 class="mt-2 font-bold leading-tight text-4xl text-stone-900 tracking-tight md:text-5xl">
+        @if (hasItems)
+          Saved for later.
+        @elseif (savedSlugs && savedSlugs.length > 0)
+          Out of stock — for now.
+        @else
+          Nothing saved yet.
+        @endif
+      </h1>
+      <p class="mt-4 leading-relaxed text-stone-600">
+        @if (hasItems)
+          {{ products.length }} treat{{ products.length === 1 ? '' : 's' }} bookmarked. Tap the heart on any product page to add or remove.
+          @if (ghostedCount > 0)
+            <span class="block mt-2 text-sm text-stone-500">{{ ghostedCount }} saved item{{ ghostedCount === 1 ? '' : 's' }} aren't shown — currently unavailable.</span>
+          @endif
+        @elseif (savedSlugs && savedSlugs.length > 0)
+          Every saved item is currently unavailable — bookmark them on a different cut to get the wishlist back. We'll restock most batches within 2-3 weeks.
+        @else
+          Tap the heart on any product page to bookmark it for later. The list lives on this device — no account or email needed.
+        @endif
+      </p>
+    </div>
+
+    @if (hasItems)
+      <div class="grid gap-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 mt-10">
+        @foreach (products as p)
+          <ProductCard
+            slug="{{ p.slug }}"
+            name="{{ p.name }}"
+            priceLabel="{{ p.priceLabel }}"
+            image="{{ p.image }}"
+            imageSrcset="{{ p.imageSrcset }}"
+            ingredient="{{ p.ingredient }}"
+            weight="{{ p.weight }}"
+            badge="{{ p.badge }}"
+            badgeVariant="{{ p.badgeVariant }}"
+            speciesLabel="For dogs"
+            ratingLabel="{{ p.ratingLabel }}"
+            :reviewCount="p.reviewCount"
+          />
+        @endforeach
+      </div>
+    @else
+      <div class="grid gap-4 sm:grid-cols-2 mt-10">
+        <a href="/products" class="p-6 border border-stone-200 rounded-2xl hover:border-stone-900 transition-colors">
+          <p class="font-semibold text-emerald-700 text-xs tracking-wider uppercase">Shop</p>
+          <p class="mt-2 font-semibold text-stone-900">Browse the whole bowl</p>
+          <p class="mt-1 text-sm text-stone-500">Single-ingredient cuts, slow-dehydrated. For dogs.</p>
+        </a>
+        <a href="/limited" class="p-6 border border-stone-200 rounded-2xl hover:border-stone-900 transition-colors">
+          <p class="font-semibold text-emerald-700 text-xs tracking-wider uppercase">Limited</p>
+          <p class="mt-2 font-semibold text-stone-900">Running low</p>
+          <p class="mt-1 text-sm text-stone-500">Cuts about to sell through — grab before the queue moves.</p>
+        </a>
+      </div>
+    @endif
+
+  </div>
+@endsection

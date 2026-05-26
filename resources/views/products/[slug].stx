@@ -290,13 +290,42 @@ const productSchema = product ? JSON.stringify({
             <p class="text-sm text-stone-500">/ {{ product.weight }}</p>
           </div>
 
+          {{-- Wishlist toggle. Sits above the add-to-cart so the
+               affordance is in the eyeline of someone reading the
+               tagline/price. Initial render is "not saved" — the
+               toggle script at the bottom of the page hydrates the
+               saved state from the cookie on load and updates both
+               cookie + visuals on click. Plain `data-wishlist-*`
+               attribute names (not `data-stx-*`) so they don't
+               collide with stx's own attribute namespace. --}}
+          <button
+            type="button"
+            data-wishlist-toggle
+            data-wishlist-slug="{{ product.slug }}"
+            aria-pressed="false"
+            aria-label="Save for later"
+            class="mt-6 inline-flex items-center gap-2 rounded-full border border-stone-300 hover:border-stone-900 px-4 py-2 text-sm font-medium text-stone-700 hover:text-stone-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4 transition-colors"
+              viewBox="0 0 24 24"
+              stroke-width="2"
+              stroke="currentColor"
+              fill="none"
+              data-wishlist-heart
+              aria-hidden="true"
+            ><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.099 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"/></svg>
+            <span data-wishlist-label>Save for later</span>
+          </button>
+
           <!-- POST goes to the framework's add-to-cart route. The
                data-stx-add-to-cart attribute on the submit button is
                picked up by the CartDrawer component, which intercepts
                the click, posts via XHR, and slides the drawer in
                instead of doing a full-page redirect. JS-off shoppers
                still get the form submit + /cart redirect. -->
-          <form action="/api/cart/add" method="POST" class="mt-8 flex flex-col sm:flex-row gap-3">
+          <form action="/api/cart/add" method="POST" class="mt-4 flex flex-col sm:flex-row gap-3">
             <input type="hidden" name="slug" value="{{ product.slug }}">
             <input type="hidden" name="redirect" value="/cart">
             <QuantitySelector :value="1" />
@@ -543,6 +572,69 @@ const productSchema = product ? JSON.stringify({
       const oneYear = 60 * 60 * 24 * 365
       document.cookie = COOKIE + '=' + encodeURIComponent(next.join(',')) +
         '; Max-Age=' + oneYear + '; Path=/; SameSite=Lax'
+    })()
+    </script>
+
+    {{-- Wishlist toggle. Same cookie shape as stacks_recent_views,
+         just a separate name (stacks_wishlist) so removing a recently-
+         viewed entry doesn't surprise-delete saved items. Hydrates
+         the button's saved-state from the cookie on first run, then
+         updates cookie + visual state on click. --}}
+    <script data-stx-scoped>
+    ;(() => {
+      if (window.__stxWishlistWired) return
+      window.__stxWishlistWired = true
+
+      const COOKIE = 'stacks_wishlist'
+      const MAX = 50
+      const SLUG_RE = /^[a-z0-9-]{1,64}$/i
+      const oneYear = 60 * 60 * 24 * 365
+
+      function readCookie() {
+        const raw = (document.cookie.split('; ').find(c => c.indexOf(COOKIE + '=') === 0) || '').split('=')[1] || ''
+        return raw
+          ? decodeURIComponent(raw).split(',').filter(s => SLUG_RE.test(s))
+          : []
+      }
+      function writeCookie(list) {
+        const value = list.slice(0, MAX).join(',')
+        document.cookie = COOKIE + '=' + encodeURIComponent(value) +
+          '; Max-Age=' + oneYear + '; Path=/; SameSite=Lax'
+      }
+      function paint(btn, saved) {
+        btn.setAttribute('aria-pressed', saved ? 'true' : 'false')
+        btn.setAttribute('aria-label', saved ? 'Remove from wishlist' : 'Save for later')
+        const heart = btn.querySelector('[data-wishlist-heart]')
+        if (heart) heart.setAttribute('fill', saved ? 'currentColor' : 'none')
+        const label = btn.querySelector('[data-wishlist-label]')
+        if (label) label.textContent = saved ? 'Saved' : 'Save for later'
+      }
+
+      // Hydrate any toggles already on the page from the cookie. The
+      // PDP renders the button in its "not saved" default; this pass
+      // flips it to "saved" if the cookie says otherwise.
+      const initial = new Set(readCookie())
+      document.querySelectorAll('[data-wishlist-toggle]').forEach((btn) => {
+        const slug = btn.getAttribute('data-wishlist-slug') || ''
+        if (slug && initial.has(slug)) paint(btn, true)
+      })
+
+      document.addEventListener('click', (e) => {
+        const target = e.target instanceof Element ? e.target : null
+        const btn = target ? target.closest('[data-wishlist-toggle]') : null
+        if (!btn) return
+        e.preventDefault()
+        const slug = btn.getAttribute('data-wishlist-slug') || ''
+        if (!slug || !SLUG_RE.test(slug)) return
+
+        const existing = readCookie()
+        const isSaved = existing.includes(slug)
+        const next = isSaved
+          ? existing.filter(s => s !== slug)
+          : [slug].concat(existing.filter(s => s !== slug))
+        writeCookie(next)
+        paint(btn, !isSaved)
+      })
     })()
     </script>
   @endif
