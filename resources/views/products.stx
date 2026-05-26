@@ -21,11 +21,22 @@ function productSrcset(imageUrl) {
   return PRODUCT_VARIANT_WIDTHS.map(w => `${m[1]}-${w}.jpg ${w}w`).join(', ')
 }
 
+// LEFT JOIN against an aggregate of approved reviews so each card can
+// show its star rating + count without firing a per-product query.
+// COALESCE keeps products with zero reviews in the result with a
+// zeroed-out aggregate; the card hides the rating row when count = 0.
 const products = db.query(`
-  SELECT slug, name, ingredient, weight_grams, price, image_url, inventory_count
-  FROM products
-  WHERE is_available = 1 AND pet_species = 'dog'
-  ORDER BY price ASC
+  SELECT p.slug, p.name, p.ingredient, p.weight_grams, p.price, p.image_url, p.inventory_count,
+        COALESCE(r.n, 0) AS review_count,
+        COALESCE(r.avg, 0) AS review_avg
+  FROM products p
+  LEFT JOIN (
+    SELECT product_id, COUNT(*) AS n, AVG(rating) AS avg
+    FROM reviews WHERE is_approved = 1
+    GROUP BY product_id
+  ) r ON r.product_id = p.id
+  WHERE p.is_available = 1 AND p.pet_species = 'dog'
+  ORDER BY p.price ASC
 `).all().map((p) => {
   // Stock urgency tiers — keep in sync with the PDP at
   // resources/views/products/[slug].stx:
@@ -38,6 +49,8 @@ const products = db.query(`
   const stock = Number(p.inventory_count) || 0
   const isUrgent = stock > 0 && stock <= 5
   const isLimited = stock > 0 && stock < 30
+  const reviewCount = Number(p.review_count) || 0
+  const reviewAvg = Number(p.review_avg) || 0
   return {
     slug: p.slug,
     name: p.name,
@@ -48,6 +61,8 @@ const products = db.query(`
     imageSrcset: productSrcset(p.image_url),
     badge: isUrgent ? `Only ${stock} left` : (isLimited ? 'Limited' : ''),
     badgeVariant: isUrgent ? 'urgent' : 'soft',
+    reviewCount,
+    ratingLabel: reviewCount > 0 ? reviewAvg.toFixed(1) : '',
   }
 })
 
@@ -108,6 +123,8 @@ const collectionSchema = products.length > 0 ? JSON.stringify({
             badge="{{ p.badge }}"
             badgeVariant="{{ p.badgeVariant }}"
             speciesLabel="For dogs"
+            ratingLabel="{{ p.ratingLabel }}"
+            :reviewCount="p.reviewCount"
           />
         @endforeach
       </div>
