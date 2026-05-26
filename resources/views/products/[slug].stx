@@ -469,4 +469,45 @@ const productSchema = product ? JSON.stringify({
     @endif
 
   </div>
+
+  @if (found && product.inStock)
+    {{-- Sticky mobile add-to-cart bar. Visible only on small screens
+         (md:hidden) where the main add button scrolls off-screen
+         quickly. Lives outside the page container so position:fixed
+         isn't trapped by an intermediate transform/stacking context.
+         The form here is independent of the in-page form but POSTs
+         the same payload and carries the same data-stx-add-to-cart
+         hook, so the CartDrawer's delegated listener catches it
+         without any extra wiring. Hidden when product is sold out
+         (the restock-notify card takes that slot's value). The
+         pb-[safe-area-inset-bottom] padding keeps the button clear
+         of the iOS home-indicator. --}}
+    <div
+      class="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-stone-200 bg-stone-50/95 backdrop-blur supports-[backdrop-filter]:bg-stone-50/75"
+      style="padding-bottom: env(safe-area-inset-bottom)"
+    >
+      <form action="/api/cart/add" method="POST" class="flex items-center gap-3 px-4 py-3">
+        <input type="hidden" name="slug" value="{{ product.slug }}">
+        <input type="hidden" name="redirect" value="/cart">
+        <input type="hidden" name="quantity" value="1">
+        <div class="flex-shrink-0">
+          <p class="text-[10px] uppercase tracking-wider text-stone-500 font-semibold">{{ product.weight }}</p>
+          <p class="font-bold text-stone-900 leading-none mt-0.5 tabular-nums">${{ product.price.toFixed(2) }}</p>
+        </div>
+        <button
+          type="submit"
+          data-stx-add-to-cart
+          class="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-stone-900 hover:bg-stone-800 px-5 py-3 font-semibold text-sm text-stone-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 focus-visible:ring-stone-900"
+          aria-label="Add {{ product.name }} to cart"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c.51 0 .956-.343 1.087-.835l1.872-7.024A1.125 1.125 0 0019.797 5.25H5.106M7.5 14.25L5.106 5.25"/></svg>
+          Add to cart
+        </button>
+      </form>
+    </div>
+    {{-- Spacer matched to the bar height so the page's last content
+         doesn't end flush with the bar's top edge on mobile. md:hidden
+         so it disappears on larger screens where the bar isn't shown. --}}
+    <div aria-hidden="true" class="md:hidden h-20"></div>
+  @endif
 @endsection
