@@ -65,9 +65,34 @@ const sections = [
     ],
   },
 ]
+
+// FAQPage JSON-LD. Google reads this and (when the algorithm decides
+// to) renders the questions as an expandable rich result in search,
+// which is the highest-CTR placement an FAQ page can earn. Flat
+// `mainEntity` array — sections are a UI grouping only, the schema
+// doesn't model them. Stripping internal newlines from the answers
+// because schema.org accepts plain text and Google's validator dings
+// pages whose `Answer.text` happens to render with line-break literals.
+const faqSchema = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: sections.flatMap(s => s.items).map(item => ({
+    '@type': 'Question',
+    name: item.q,
+    acceptedAnswer: {
+      '@type': 'Answer',
+      text: String(item.a).replace(/\s+/g, ' ').trim(),
+    },
+  })),
+})
 </script>
 
 @section('content')
+  {{-- FAQPage structured data. Mirrors the inline placement used by
+      other pages (Product on PDP, Organization+WebSite on /). STX's
+      script rewriter passes `application/ld+json` through verbatim. --}}
+  <script type="application/ld+json">{!! faqSchema !!}</script>
+
   <div class="mx-auto px-6 py-20 max-w-3xl">
 
     <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">Help</p>
