@@ -95,6 +95,79 @@ const freeShippingUnlocked = items.length > 0 && subtotal >= FREE_SHIPPING_THRES
 const freeShippingHeadline = freeShippingUnlocked
   ? 'Free shipping unlocked — your bowl ships on us.'
   : (items.length > 0 ? `Add $${remainingForFree.toFixed(2)} more to unlock free shipping.` : '')
+
+// "Round out your bowl" suggestions. Shown below the items column
+// when the cart has at least one item. Filters out anything already
+// in the cart (matched by slug, since cart_items store product_sku).
+// Ordering biases toward closing the gap to free shipping: products
+// priced at-or-just-under `remainingForFree` come first, then the
+// rest by price ascending. When the threshold is already met, fall
+// back to price ascending. Limited to 3 cards.
+const PRODUCT_VARIANT_WIDTHS = [400, 600, 900]
+function productSrcset(imageUrl) {
+  const m = String(imageUrl || '').match(/^(\/images\/products\/[a-z0-9-]+)\.(jpe?g|png)$/i)
+  if (!m) return ''
+  return PRODUCT_VARIANT_WIDTHS.map(w => `${m[1]}-${w}.jpg ${w}w`).join(', ')
+}
+
+let suggestions = []
+if (items.length > 0) {
+  const slugsInCart = items.map(i => i.slug).filter(Boolean)
+  // Build the NOT IN placeholder list dynamically rather than string-
+  // concatenating values into the SQL — kept parametric to avoid an
+  // accidental injection vector if a cart row ever carried unusual
+  // characters in product_sku.
+  const placeholders = slugsInCart.map((_, idx) => `?${idx + 1}`).join(', ')
+  const baseSql = `
+    SELECT slug, name, ingredient, weight_grams, price, image_url, inventory_count
+    FROM products
+    WHERE is_available = 1 AND pet_species = 'dog' AND inventory_count > 0
+      ${slugsInCart.length ? `AND slug NOT IN (${placeholders})` : ''}
+  `
+  const rows = db.query(baseSql).all(...slugsInCart)
+
+  // Score each candidate. Lower score = better suggestion. When there's
+  // a real shipping gap, prefer prices within ±$8 of the gap so the
+  // suggestion meaningfully moves the cart toward free shipping. When
+  // there's no gap (already free) the score collapses to plain price
+  // ascending so the shopper still sees the cheapest add-ons first.
+  const scored = rows.map((p) => {
+    const price = Number(p.price) || 0
+    let score = price
+    if (!freeShippingUnlocked && remainingForFree > 0) {
+      const distance = Math.abs(price - remainingForFree)
+      // Heavy negative bias for prices within the shipping gap window.
+      score = distance + (price >= remainingForFree ? -2 : 0)
+    }
+    return { p, score }
+  })
+  scored.sort((a, b) => a.score - b.score)
+
+  suggestions = scored.slice(0, 3).map(({ p }) => {
+    const stock = Number(p.inventory_count) || 0
+    const isUrgent = stock > 0 && stock <= 5
+    const isLimited = stock > 0 && stock < 30
+    return {
+      slug: p.slug,
+      name: p.name,
+      ingredient: p.ingredient,
+      weight: `${p.weight_grams}g`,
+      priceLabel: `$${Number(p.price).toFixed(2)}`,
+      image: p.image_url,
+      imageSrcset: productSrcset(p.image_url),
+      badge: isUrgent ? `Only ${stock} left` : (isLimited ? 'Limited' : ''),
+      badgeVariant: isUrgent ? 'urgent' : 'soft',
+    }
+  })
+}
+
+// Headline that explains the suggestion row in context. When the
+// shopper still has a gap, point at it; otherwise frame it as "while
+// you're here" so the suggestion doesn't feel out of place after
+// they've already cleared the threshold.
+const suggestionsHeadline = (items.length > 0 && !freeShippingUnlocked && remainingForFree > 0)
+  ? `One more thing? Add $${remainingForFree.toFixed(2)} to ship free.`
+  : 'Round out your bowl.'
 </script>
 
 @section('content')
@@ -118,8 +191,8 @@ const freeShippingHeadline = freeShippingUnlocked
       </div>
     @else
       {{-- Free-shipping progress banner. Above the items so it's the
-           first thing the shopper sees on /cart; the OrderSummary
-           sidebar carries the same line as a one-liner near the CTA. --}}
+          first thing the shopper sees on /cart; the OrderSummary
+          sidebar carries the same line as a one-liner near the CTA. --}}
       <div class="mt-8 p-5 bg-stone-50 border border-stone-200 rounded-2xl">
         <div class="flex gap-3 items-center">
           <span aria-hidden="true" class="inline-flex flex-shrink-0 items-center justify-center h-9 w-9 bg-white border border-stone-200 rounded-full">
@@ -131,7 +204,7 @@ const freeShippingHeadline = freeShippingUnlocked
           </span>
           <p class="flex-1 font-medium text-sm text-stone-900">{{ freeShippingHeadline }}</p>
         </div>
-        <div class="mt-3 h-2 w-full bg-stone-200 rounded-full overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ Math.round(freeShippingProgress) }}" aria-label="Free shipping progress">
+        <div class="overflow-hidden mt-3 h-2 w-full bg-stone-200 rounded-full" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ Math.round(freeShippingProgress) }}" aria-label="Free shipping progress">
           <div class="h-full {{ freeShippingUnlocked ? 'bg-emerald-500' : 'bg-stone-900' }} transition-all duration-300" style="width: {{ freeShippingProgress }}%"></div>
         </div>
       </div>
@@ -182,33 +255,33 @@ const freeShippingHeadline = freeShippingUnlocked
           @endforeach
 
           {{-- Coupon code apply / remove. Lives at the bottom of the
-               items column rather than the OrderSummary sidebar so a
-               shopper who types a code can read the discount line
-               appear in the sticky summary next to it. POSTs back to
-               /cart on success/failure — flash messaging will land
-               here once the storefront grows an XHR layer; for now
-               the cart re-renders with either the applied chip or
-               the error state derived from the absence of a coupon
-               row. --}}
-          <div class="mt-2 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+              items column rather than the OrderSummary sidebar so a
+              shopper who types a code can read the discount line
+              appear in the sticky summary next to it. POSTs back to
+              /cart on success/failure — flash messaging will land
+              here once the storefront grows an XHR layer; for now
+              the cart re-renders with either the applied chip or
+              the error state derived from the absence of a coupon
+              row. --}}
+          <div class="mt-2 p-4 bg-stone-50 border border-stone-200 rounded-2xl">
             @if (appliedCouponCode)
               <div class="flex gap-3 items-center justify-between">
                 <div class="flex gap-2 items-center min-w-0">
-                  <span aria-hidden="true" class="inline-flex flex-shrink-0 h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                  <span aria-hidden="true" class="inline-flex flex-shrink-0 items-center justify-center h-7 w-7 text-emerald-700 bg-emerald-100 rounded-full">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
                   </span>
                   <div class="min-w-0">
-                    <p class="font-semibold text-sm text-stone-900 tabular-nums">{{ appliedCouponCode }}</p>
-                    <p class="text-xs text-stone-500">{{ discountLabel }} off your subtotal</p>
+                    <p class="font-semibold tabular-nums text-sm text-stone-900">{{ appliedCouponCode }}</p>
+                    <p class="text-stone-500 text-xs">{{ discountLabel }} off your subtotal</p>
                   </div>
                 </div>
                 <form action="/api/cart/coupon" method="POST">
                   <input type="hidden" name="remove" value="1">
-                  <button type="submit" class="font-medium text-xs text-stone-500 underline underline-offset-4 hover:text-stone-900 focus-visible:outline-none focus-visible:text-stone-900">Remove</button>
+                  <button type="submit" class="font-medium text-stone-500 text-xs underline underline-offset-4 focus-visible:text-stone-900 hover:text-stone-900 focus-visible:outline-none">Remove</button>
                 </form>
               </div>
             @else
-              <form action="/api/cart/coupon" method="POST" class="flex flex-col sm:flex-row gap-2">
+              <form action="/api/cart/coupon" method="POST" class="flex flex-col gap-2 sm:flex-row">
                 <label for="cart-coupon-code" class="sr-only">Promo code</label>
                 <input
                   type="text"
@@ -218,9 +291,9 @@ const freeShippingHeadline = freeShippingUnlocked
                   autocomplete="off"
                   spellcheck="false"
                   maxlength="40"
-                  class="flex-1 rounded-full bg-white border border-stone-300 px-4 py-2 text-sm uppercase tracking-wider text-stone-900 placeholder:normal-case placeholder:tracking-normal placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-stone-900"
+                  class="flex-1 px-4 py-2 text-sm text-stone-900 tracking-wider uppercase placeholder:normal-case placeholder:text-stone-400 placeholder:tracking-normal bg-white border border-stone-300 rounded-full focus:border-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
                 >
-                <button type="submit" class="rounded-full border border-stone-300 hover:border-stone-900 hover:bg-stone-100 px-5 py-2 font-medium text-sm text-stone-700 hover:text-stone-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 focus-visible:ring-stone-900">Apply</button>
+                <button type="submit" class="px-5 py-2 font-medium text-sm text-stone-700 hover:text-stone-900 hover:bg-stone-100 border border-stone-300 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-50 focus-visible:ring-stone-900 hover:border-stone-900 transition-colors">Apply</button>
               </form>
             @endif
           </div>
@@ -241,6 +314,39 @@ const freeShippingHeadline = freeShippingUnlocked
         />
 
       </div>
+
+      @if (suggestions.length > 0)
+        {{-- Cross-sell row. Lives full-width under the items+summary
+            grid so the cards have room to breathe; the order summary
+            stays the focal point of the right column. When there's
+            still a gap to free shipping the headline frames the
+            suggestions as the cheapest way to close it. --}}
+        <section class="mt-14">
+          <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p class="font-medium text-stone-500 text-xs tracking-wider uppercase">Pairs well</p>
+              <h2 class="mt-2 font-bold text-2xl text-stone-900 tracking-tight md:text-3xl">{{ suggestionsHeadline }}</h2>
+            </div>
+            <a href="/products" class="font-medium text-sm text-stone-700 underline-offset-4 hover:text-stone-900 hover:underline">Browse all →</a>
+          </div>
+          <div class="grid gap-5 grid-cols-2 md:grid-cols-3 mt-6">
+            @foreach (suggestions as p)
+              <ProductCard
+                slug="{{ p.slug }}"
+                name="{{ p.name }}"
+                priceLabel="{{ p.priceLabel }}"
+                image="{{ p.image }}"
+                imageSrcset="{{ p.imageSrcset }}"
+                ingredient="{{ p.ingredient }}"
+                weight="{{ p.weight }}"
+                badge="{{ p.badge }}"
+                badgeVariant="{{ p.badgeVariant }}"
+                speciesLabel="For dogs"
+              />
+            @endforeach
+          </div>
+        </section>
+      @endif
     @endif
   </div>
 @endsection
