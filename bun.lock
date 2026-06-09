@@ -726,7 +726,7 @@
       "devDependencies": {
         "@stacksjs/config": "workspace:*",
         "@stacksjs/utils": "workspace:*",
-        "@stripe/stripe-js": "^8.7.0",
+        "@stripe/stripe-js": "^9.8.0",
         "better-dx": "^0.2.12",
         "stripe": "^21.0.1",
       },
@@ -2146,8 +2146,6 @@
     "@isaacs/cliui/string-width": ["string-width@5.1.2", "", { "dependencies": { "eastasianwidth": "^0.2.0", "emoji-regex": "^9.2.2", "strip-ansi": "^7.0.1" } }, "sha512-HnLOCR3vjcY8beoNLtcjZ5/nxn2afmME6lhrDrebokqMap+XbeW8n9TXpPDOqdGK5qcI3oT0GKTW6wC7EMiVqA=="],
 
     "@secretlint/formatter/chalk": ["chalk@5.6.2", "", {}, "sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA=="],
-
-    "@stacksjs/payments/@stripe/stripe-js": ["@stripe/stripe-js@8.11.0", "", {}, "sha512-3fVF4z3efsgwgyj64nFK+6F4/vMw0mUXD2TBbOfftJtKVNx4JNv3CSfe1fY4DCtCk0JFp8/YPNcRkzgV0HJ8cg=="],
 
     "@stacksjs/stx/@stacksjs/desktop": ["@stacksjs/desktop@0.2.70", "", { "peerDependencies": { "craft": "*" }, "optionalPeers": ["craft"] }, "sha512-tBwE98HT+bajYzm4oY2NZtXz5+c9DjX6rUVXs0d8vr3Kv/4pof6tx+GTw64Z+lqvdB8wgCISRduDIVZiZjyDWQ=="],
 
