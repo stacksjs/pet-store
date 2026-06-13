@@ -54,8 +54,8 @@
     "@stacksjs/config": "workspace:*",
     "better-dx": "^0.2.12",
     "@stacksjs/path": "workspace:*",
-    "@stacksjs/types": "workspace:*",
-    "@stacksjs/validation": "workspace:*"
+    "@stacksjs/types": "workspace:*0.70.45",
+    "@stacksjs/validation": "workspace:*0.70.45"
   },
   "sideEffects": false
 }
